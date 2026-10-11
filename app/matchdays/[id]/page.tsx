@@ -209,12 +209,20 @@ export default function MatchDayPage() {
       </h1>
       {matchDay.notes && <p className="text-gray-600 mb-4">{matchDay.notes}</p>}
 
-      <Link
-        href={`/matchdays/${matchDayId}/games`}
-        className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white mt-2"
-      >
-        ⚽ Zu den Spielen
-      </Link>
+      <div className="flex flex-wrap gap-3 mt-2">
+        <Link
+          href={`/matchdays/${matchDayId}/games`}
+          className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white"
+        >
+          ⚽ Zu den Spielen
+        </Link>
+        <Link
+          href={`/matchdays/${matchDayId}/results`}
+          className="inline-block rounded-xl bg-white border border-green-600 px-6 py-4 text-lg font-semibold text-green-800"
+        >
+          📊 Auswertung
+        </Link>
+      </div>
 
       {/* Übersicht der Teams */}
       <section className="bg-white rounded-xl p-5 shadow mb-6 mt-4">
