@@ -43,7 +43,11 @@ export default async function MatchDaysPage() {
 
       <div className="space-y-4">
         {matchDays?.map((matchDay) => (
-          <div key={matchDay.id} className="bg-white rounded-xl p-6 shadow">
+          <Link
+            key={matchDay.id}
+            href={`/matchdays/${matchDay.id}`}
+            className="block bg-white rounded-xl p-6 shadow"
+          >
             <p className="text-2xl font-bold">{formatDate(matchDay.play_date)}</p>
             <p className="text-green-700 font-medium mt-1">
               {matchDay.teams.length} Teams
@@ -51,7 +55,7 @@ export default async function MatchDaysPage() {
             {matchDay.notes && (
               <p className="text-gray-600 mt-1">{matchDay.notes}</p>
             )}
-          </div>
+          </Link>
         ))}
       </div>
     </main>
