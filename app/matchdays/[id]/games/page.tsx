@@ -175,7 +175,7 @@ export default function GamesPage() {
 
   async function addFreeGame() {
     if (!freeA || !freeB) {
-      setErrorMessage("Bitte Team A und Team B wählen.");
+      setErrorMessage("Bitte beide Teams wählen.");
       return;
     }
     if (freeA === freeB) {
@@ -291,6 +291,12 @@ export default function GamesPage() {
                         <span className="text-2xl font-bold">
                           {game.goals_team_a} : {game.goals_team_b}
                         </span>
+                        <Link
+                          href={`/matchdays/${matchDayId}/games/${game.id}`}
+                          className="rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white"
+                        >
+                          {game.finished ? "Ansehen" : "Zählen"}
+                        </Link>
                         {removable && (
                           <button
                             type="button"
@@ -387,7 +393,7 @@ export default function GamesPage() {
       <section className="bg-white rounded-xl p-5 shadow">
         <h2 className="font-semibold mb-3">Einzelnes Spiel hinzufügen</h2>
 
-        <p className="text-sm text-gray-600 mb-1">Team A</p>
+        <p className="text-sm text-gray-600 mb-1">Erstes Team</p>
         <div className="flex flex-wrap gap-2 mb-3">
           {teams.map((team) => (
             <button
@@ -406,7 +412,7 @@ export default function GamesPage() {
           ))}
         </div>
 
-        <p className="text-sm text-gray-600 mb-1">Team B</p>
+        <p className="text-sm text-gray-600 mb-1">gegen</p>
         <div className="flex flex-wrap gap-2 mb-3">
           {teams.map((team) => (
             <button
