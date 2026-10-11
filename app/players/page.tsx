@@ -1,54 +1,43 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-export default async function Home() {
-    const { data: players, error } = await supabase
-        .from("players")
-        .select("*");
+export const dynamic = "force-dynamic";
 
-    return (
-        <main className="min-h-screen bg-green-100 p-10">
-            <h1 className="text-5xl font-bold text-center text-green-800 mb-10">
-                ⚽ Sonntagskick
-            </h1>
+export default async function PlayersPage() {
+  const { data: players, error } = await supabase
+    .from("players")
+    .select("id, name, nickname")
+    .order("created_at", { ascending: true });
 
-            <div className="max-w-4xl mx-auto">
-                <h2 className="text-2xl font-bold mb-4">
-                    Spieler
-                </h2>
-                <Link href="/players/new">
-                    <button className="mb-4 rounded-xl bg-green-600 px-4 py-3 text-white font-semibold">
-                        ➕ Spieler hinzufügen
-                    </button>
-                </Link>
-                {error && (
-                    <p className="text-red-600">
-                        Fehler: {error.message}
-                    </p>
-                )}
+  return (
+    <main className="min-h-screen bg-green-100 p-6">
+      <h1 className="text-3xl font-bold mb-6">Spieler</h1>
 
-                <div className="space-y-3">
-                    {players?.map((player: any) => (
-                        <div
-                            key={player.id}
-                            className="bg-white rounded-xl p-4 shadow"
-                        >
-                            <div className="font-bold text-lg">
-                                {player.nickname}
-                            </div>
+      <Link
+        href="/players/new"
+        className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white mb-6"
+      >
+        ➕ Spieler hinzufügen
+      </Link>
 
-                            <div className="text-gray-600">
-                                {player.name}
-                            </div>
+      {error && (
+        <p className="text-red-600 font-medium mb-4">
+          Fehler beim Laden: {error.message}
+        </p>
+      )}
 
-                            <div className="text-sm text-green-700">
-                                {player.player_type}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </main>
-    );
+      <div className="space-y-4">
+        {players?.map((player) => (
+          <div key={player.id} className="bg-white rounded-xl p-6 shadow">
+            <p className="text-2xl font-bold">
+              {player.nickname ?? player.name}
+            </p>
+            {player.nickname && (
+              <p className="text-lg text-gray-600">{player.name}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </main>
+  );
 }
-``
