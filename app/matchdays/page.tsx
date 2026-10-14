@@ -1,7 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-
-export const dynamic = "force-dynamic";
 
 type MatchDayRow = {
   id: string;
@@ -52,13 +53,28 @@ function DayCard({
   );
 }
 
-export default async function MatchDaysPage() {
-  const { data, error } = await supabase
-    .from("match_days")
-    .select("id, play_date, notes, teams(id)")
-    .order("play_date", { ascending: true });
+export default function MatchDaysPage() {
+  const [matchDays, setMatchDays] = useState<MatchDayRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const matchDays = (data ?? []) as MatchDayRow[];
+  useEffect(() => {
+    async function load() {
+      const { data, error } = await supabase
+        .from("match_days")
+        .select("id, play_date, notes, teams(id)")
+        .order("play_date", { ascending: true });
+
+      if (error) {
+        setErrorMessage(error.message);
+      } else {
+        setMatchDays((data ?? []) as MatchDayRow[]);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
   const today = todayVienna();
 
   // Heute und Zukunft: aufsteigend (nächster zuerst). Vergangenheit: absteigend.
@@ -79,13 +95,15 @@ export default async function MatchDaysPage() {
         ➕ Neuer Spieltag
       </Link>
 
-      {error && (
+      {errorMessage && (
         <p className="text-red-600 font-medium mb-4">
-          Fehler beim Laden: {error.message}
+          Fehler beim Laden: {errorMessage}
         </p>
       )}
 
-      {matchDays.length === 0 && !error && (
+      {loading && <p className="text-gray-600">Lädt…</p>}
+
+      {!loading && matchDays.length === 0 && !errorMessage && (
         <p className="text-gray-600">Noch kein Spieltag angelegt.</p>
       )}
 

@@ -1,7 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-export const dynamic = "force-dynamic";
+type Player = { id: string; name: string; nickname: string | null };
 
 const TYPE_LABELS: Record<string, string> = {
   stamm: "Stammspieler",
@@ -9,38 +12,60 @@ const TYPE_LABELS: Record<string, string> = {
   gast: "Gast",
 };
 
-export default async function PlayersPage() {
-  const { data: players, error } = await supabase
-    .from("players")
-    .select("id, name, nickname")
-    .order("created_at", { ascending: true });
+export default function PlayersPage() {
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [seasonName, setSeasonName] = useState<string | null>(null);
+  const [typeByPlayer, setTypeByPlayer] = useState<Map<string, string>>(
+    new Map()
+  );
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Aktuelle Saison = die mit dem neuesten Startdatum
-  const { data: season } = await supabase
-    .from("seasons")
-    .select("id, season_name")
-    .order("start_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  useEffect(() => {
+    async function load() {
+      const { data: playerRows, error } = await supabase
+        .from("players")
+        .select("id, name, nickname")
+        .order("created_at", { ascending: true });
 
-  const typeByPlayer = new Map<string, string>();
-  if (season) {
-    const { data: seasonPlayers } = await supabase
-      .from("season_players")
-      .select("player_id, player_type")
-      .eq("season_id", season.id);
+      if (error) {
+        setErrorMessage(error.message);
+        setLoading(false);
+        return;
+      }
 
-    seasonPlayers?.forEach((sp) => {
-      typeByPlayer.set(sp.player_id, sp.player_type);
-    });
-  }
+      // Aktuelle Saison = die mit dem neuesten Startdatum
+      const { data: season } = await supabase
+        .from("seasons")
+        .select("id, season_name")
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const types = new Map<string, string>();
+      if (season) {
+        const { data: seasonPlayers } = await supabase
+          .from("season_players")
+          .select("player_id, player_type")
+          .eq("season_id", season.id);
+
+        seasonPlayers?.forEach((sp) => {
+          types.set(sp.player_id, sp.player_type);
+        });
+      }
+
+      setPlayers(playerRows ?? []);
+      setSeasonName(season ? season.season_name : null);
+      setTypeByPlayer(types);
+      setLoading(false);
+    }
+    load();
+  }, []);
 
   return (
     <main className="min-h-screen bg-green-100 p-6">
       <h1 className="text-3xl font-bold mb-2">Spieler</h1>
-      {season && (
-        <p className="text-gray-600 mb-6">Saison {season.season_name}</p>
-      )}
+      {seasonName && <p className="text-gray-600 mb-6">Saison {seasonName}</p>}
 
       <Link
         href="/players/new"
@@ -49,14 +74,16 @@ export default async function PlayersPage() {
         ➕ Spieler hinzufügen
       </Link>
 
-      {error && (
+      {errorMessage && (
         <p className="text-red-600 font-medium mb-4">
-          Fehler beim Laden: {error.message}
+          Fehler beim Laden: {errorMessage}
         </p>
       )}
 
+      {loading && <p className="text-gray-600">Lädt…</p>}
+
       <div className="space-y-4">
-        {players?.map((player) => {
+        {players.map((player) => {
           const type = typeByPlayer.get(player.id);
           return (
             <div key={player.id} className="bg-white rounded-xl p-6 shadow">
