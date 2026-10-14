@@ -44,6 +44,7 @@ export default function GamesPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
+  const [started, setStarted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -55,7 +56,7 @@ export default function GamesPage() {
   const load = useCallback(async () => {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
-      .select("id, play_date")
+      .select("id, play_date, started_at")
       .eq("id", matchDayId)
       .single();
 
@@ -80,6 +81,7 @@ export default function GamesPage() {
       .order("game_number", { ascending: true, nullsFirst: false });
 
     setPlayDate(md.play_date);
+    setStarted(!!md.started_at);
     setTeams(teamRows ?? []);
     setGames(gameRows ?? []);
     setLoading(false);
@@ -238,6 +240,34 @@ export default function GamesPage() {
 
   const btnBase =
     "rounded-xl border px-4 py-4 text-lg font-semibold disabled:opacity-50";
+
+  // Spiele gibt es erst, wenn der Spieltag gestartet wurde
+  if (!started && games.length === 0) {
+    return (
+      <main className="min-h-screen bg-green-100 p-6">
+        <Link
+          href={`/matchdays/${matchDayId}`}
+          className="text-green-800 font-medium"
+        >
+          ← Spieltag
+        </Link>
+        <h1 className="text-3xl font-bold mt-2 mb-4">
+          Spieltag noch nicht gestartet
+        </h1>
+        <p className="bg-white rounded-xl p-5 shadow text-gray-700 mb-4">
+          Spiele lassen sich erst anlegen, wenn der Spieltag gestartet wurde.
+          Ordne zuerst die Spieler den Teams zu und tippe dann auf
+          „▶ Spieltag starten“.
+        </p>
+        <Link
+          href={`/matchdays/${matchDayId}`}
+          className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white"
+        >
+          Zum Spieltag
+        </Link>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-green-100 p-6">

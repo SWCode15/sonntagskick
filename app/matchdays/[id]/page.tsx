@@ -5,7 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type MatchDay = { id: string; play_date: string; notes: string | null };
+type MatchDay = {
+  id: string;
+  play_date: string;
+  notes: string | null;
+  started_at: string | null;
+};
 type Team = { id: string; team_number: number };
 type Player = { id: string; name: string; nickname: string | null };
 type TeamPlayer = { team_id: string; player_id: string };
@@ -32,11 +37,14 @@ export default function MatchDayPage() {
   const [loading, setLoading] = useState(true);
   const [busyPlayerId, setBusyPlayerId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   const load = useCallback(async () => {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
-      .select("id, play_date, notes")
+      .select("id, play_date, notes, started_at")
       .eq("id", matchDayId)
       .single();
 
@@ -73,6 +81,9 @@ export default function MatchDayPage() {
       teamPlayerRows = data ?? [];
     }
 
+    const { data: adminFlag } = await supabase.rpc("is_admin");
+
+    setIsAdmin(adminFlag === true);
     setMatchDay(md);
     setTeams(teamRows ?? []);
     setPlayers(playerRows ?? []);
@@ -84,6 +95,10 @@ export default function MatchDayPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Nach dem Start ist die Zuordnung für alle außer Admins gesperrt
+  const started = !!matchDay?.started_at;
+  const locked = started && !isAdmin;
 
   const teamOfPlayer = new Map<string, string>();
   teamPlayers.forEach((tp) => teamOfPlayer.set(tp.player_id, tp.team_id));
@@ -112,6 +127,7 @@ export default function MatchDayPage() {
   }
 
   async function chooseTeam(playerId: string, teamId: string) {
+    if (locked) return;
     setErrorMessage(null);
     setBusyPlayerId(playerId);
     try {
@@ -150,6 +166,7 @@ export default function MatchDayPage() {
   }
 
   async function markAbsent(playerId: string) {
+    if (locked) return;
     setErrorMessage(null);
     setBusyPlayerId(playerId);
     try {
@@ -161,6 +178,32 @@ export default function MatchDayPage() {
       await load();
     }
     setBusyPlayerId(null);
+  }
+
+  async function startMatchDay() {
+    setErrorMessage(null);
+    setStarting(true);
+    const { error } = await supabase.rpc("start_match_day", {
+      p_match_day_id: matchDayId,
+    });
+    if (error) {
+      setErrorMessage(`Fehler beim Starten: ${error.message}`);
+    }
+    setShowStartDialog(false);
+    await load();
+    setStarting(false);
+  }
+
+  async function reopenMatchDay() {
+    setErrorMessage(null);
+    const { error } = await supabase
+      .from("match_days")
+      .update({ started_at: null })
+      .eq("id", matchDayId);
+    if (error) {
+      setErrorMessage(`Fehler beim Öffnen: ${error.message}`);
+    }
+    await load();
   }
 
   // Zusammenfassung / Hinweis zur Teamgröße
@@ -176,6 +219,10 @@ export default function MatchDayPage() {
       (t) =>
         `Team ${t.team.team_number} hat ${maxCount - t.count} Spieler weniger als das größte Team.`
     );
+
+  const absentNames = players
+    .filter((p) => !presentIds.has(p.id))
+    .map((p) => p.nickname ?? p.name);
 
   if (loading) {
     return (
@@ -209,13 +256,119 @@ export default function MatchDayPage() {
       </h1>
       {matchDay.notes && <p className="text-gray-600 mb-4">{matchDay.notes}</p>}
 
+      {/* Status des Spieltags */}
+      {started ? (
+        <div className="rounded-xl border border-green-600 bg-white p-4 mb-4">
+          <p className="font-semibold text-green-800">
+            ✓ Spieltag gestartet
+            {matchDay.started_at
+              ? ` (${new Date(matchDay.started_at).toLocaleTimeString("de-AT", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: "Europe/Vienna",
+                })} Uhr)`
+              : ""}
+          </p>
+          {isAdmin ? (
+            <>
+              <p className="text-sm text-gray-600 mt-1">
+                Als Admin kannst du die Zuordnung weiter ändern.
+              </p>
+              <button
+                type="button"
+                onClick={reopenMatchDay}
+                className="mt-2 rounded-xl border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700"
+              >
+                🔓 Spieltag wieder öffnen
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-gray-600 mt-1">
+              Die Teamzuordnung ist gesperrt. Änderungen nur durch einen Admin.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="mb-4">
+          {!showStartDialog && (
+            <button
+              type="button"
+              onClick={() => setShowStartDialog(true)}
+              className="rounded-xl bg-green-700 px-6 py-4 text-lg font-semibold text-white"
+            >
+              ▶ Spieltag starten
+            </button>
+          )}
+
+          {showStartDialog && (
+            <div className="rounded-xl border-2 border-green-600 bg-white p-5">
+              <p className="text-lg font-bold mb-2">
+                Sind alle Spieler richtig zugeordnet?
+              </p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {teamCounts.map(({ team, count }) => (
+                  <span
+                    key={team.id}
+                    className="rounded-xl bg-green-100 px-3 py-1 font-semibold text-green-900"
+                  >
+                    Team {team.team_number}: {count}
+                  </span>
+                ))}
+              </div>
+              {warnings.map((w) => (
+                <p key={w} className="text-amber-700 font-semibold mb-1">
+                  ⚠ {w}
+                </p>
+              ))}
+              {totalAssigned === 0 && (
+                <p className="text-amber-700 font-semibold mb-1">
+                  ⚠ Noch kein Spieler ist einem Team zugeordnet.
+                </p>
+              )}
+              <p className="text-gray-700 mt-2">
+                <span className="font-semibold">Nicht da:</span>{" "}
+                {absentNames.length > 0 ? absentNames.join(", ") : "niemand"}
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                Nach dem Start ist die Zuordnung gesperrt. Änderungen sind dann
+                nur noch durch einen Admin möglich.
+              </p>
+              <div className="flex flex-wrap gap-3 mt-4">
+                <button
+                  type="button"
+                  disabled={starting}
+                  onClick={startMatchDay}
+                  className="rounded-xl bg-green-700 px-6 py-3 text-lg font-semibold text-white disabled:opacity-50"
+                >
+                  {starting ? "Startet…" : "Ja, starten"}
+                </button>
+                <button
+                  type="button"
+                  disabled={starting}
+                  onClick={() => setShowStartDialog(false)}
+                  className="rounded-xl border border-gray-400 bg-white px-6 py-3 text-lg font-semibold text-gray-700"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-3 mt-2">
-        <Link
-          href={`/matchdays/${matchDayId}/games`}
-          className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white"
-        >
-          ⚽ Zu den Spielen
-        </Link>
+        {started ? (
+          <Link
+            href={`/matchdays/${matchDayId}/games`}
+            className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white"
+          >
+            ⚽ Zu den Spielen
+          </Link>
+        ) : (
+          <span className="inline-block rounded-xl bg-gray-200 px-6 py-4 text-lg font-semibold text-gray-500">
+            ⚽ Spiele (erst nach Start)
+          </span>
+        )}
         <Link
           href={`/matchdays/${matchDayId}/results`}
           className="inline-block rounded-xl bg-white border border-green-600 px-6 py-4 text-lg font-semibold text-green-800"
@@ -283,7 +436,7 @@ export default function MatchDayPage() {
                   <button
                     key={team.id}
                     type="button"
-                    disabled={busy}
+                    disabled={busy || locked}
                     onClick={() => chooseTeam(player.id, team.id)}
                     className={
                       "h-14 min-w-14 px-4 rounded-xl border text-xl font-bold disabled:opacity-50 " +
@@ -297,7 +450,7 @@ export default function MatchDayPage() {
                 ))}
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || locked}
                   onClick={() => markAbsent(player.id)}
                   className={
                     "h-14 px-4 rounded-xl border font-semibold disabled:opacity-50 " +
