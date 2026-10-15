@@ -366,6 +366,10 @@ export default function GamesPage() {
 
   // Welcher Schritt des Standards (3 Teams) ist dran?
   const firstGame = games.length === 1 ? games[0] : null;
+  // Nächstes Spiel zum Zählen: das erste nicht beendete nach Spielnummer
+  const nextOpenGame = [...games]
+    .filter((g) => !g.finished)
+    .sort((x, y) => (x.game_number ?? 0) - (y.game_number ?? 0))[0];
   const standardActive = isThreeTeams && started && !dayFinished;
   const standardStep: "first" | "wait" | "stayer" | null = !standardActive
     ? null
@@ -412,6 +416,17 @@ export default function GamesPage() {
         <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
       )}
 
+      {/* Nächstes Spiel zählen */}
+      {nextOpenGame && !dayFinished && (
+        <Link
+          href={`/matchdays/${matchDayId}/games/${nextOpenGame.id}`}
+          className="block text-center rounded-xl bg-green-600 px-4 py-5 text-xl font-bold text-white shadow mb-6"
+        >
+          ▶ Nächstes Spiel zählen: {teamLabel(nextOpenGame.team_a_id)} :{" "}
+          {teamLabel(nextOpenGame.team_b_id)}
+        </Link>
+      )}
+
       {/* Liste der Spiele */}
       {games.length === 0 && (
         <p className="text-gray-600 mb-6">Noch kein Spiel angelegt.</p>
@@ -433,7 +448,12 @@ export default function GamesPage() {
                   return (
                     <div
                       key={game.id}
-                      className="bg-white rounded-xl p-4 shadow flex items-center justify-between gap-3"
+                      className={
+                        "bg-white rounded-xl p-4 shadow flex items-center justify-between gap-3" +
+                        (nextOpenGame && game.id === nextOpenGame.id && !dayFinished
+                          ? " border-2 border-green-600"
+                          : "")
+                      }
                     >
                       <div>
                         <p className="text-sm text-gray-500">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Game = {
@@ -20,6 +20,7 @@ export default function LiveGamePage() {
   const params = useParams<{ id: string; gameId: string }>();
   const matchDayId = params.id;
   const gameId = params.gameId;
+  const router = useRouter();
 
   const [game, setGame] = useState<Game | null>(null);
   const [teamNumbers, setTeamNumbers] = useState<Record<string, number>>({});
@@ -123,10 +124,13 @@ export default function LiveGamePage() {
 
     if (error) {
       setErrorMessage(`Fehler: ${error.message}`);
+      setConfirmFinish(false);
+      await load();
+      setBusy(false);
+      return;
     }
-    setConfirmFinish(false);
-    await load();
-    setBusy(false);
+    // Spiel beendet: automatisch zurück zur Spieleübersicht
+    router.replace(`/matchdays/${matchDayId}/games`);
   }
 
   if (loading) {
