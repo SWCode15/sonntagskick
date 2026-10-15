@@ -108,6 +108,7 @@ export default function GamesPage() {
 
   // Standard mit 3 Teams: Auswahl merken wir uns, bis sie bestätigt wird
   // (erst dann geht etwas in die Datenbank).
+  const [teamNames, setTeamNames] = useState<Record<string, string[]>>({});
   const [pendingPair, setPendingPair] = useState<[string, string] | null>(null);
   const [stayer, setStayer] = useState<string | null>(null);
 
@@ -149,6 +150,24 @@ export default function GamesPage() {
     setStarted(!!md.started_at);
     setDayFinished(!!md.finished_at);
     setIsAdmin(adminFlag === true);
+    const teamIdList = (teamRows ?? []).map((t) => t.id);
+    const names: Record<string, string[]> = {};
+    if (teamIdList.length > 0) {
+      const { data: tpRows } = await supabase
+        .from("team_players")
+        .select("team_id, players(nickname, name)")
+        .in("team_id", teamIdList);
+      (tpRows ?? []).forEach((row) => {
+        const p = (Array.isArray(row.players) ? row.players[0] : row.players) as
+          | { nickname: string | null; name: string }
+          | null
+          | undefined;
+        if (!p) return;
+        (names[row.team_id] ??= []).push(p.nickname ?? p.name);
+      });
+      Object.values(names).forEach((list) => list.sort((a, b) => a.localeCompare(b, "de")));
+    }
+    setTeamNames(names);
     setTeams(teamRows ?? []);
     setGames(gameRows ?? []);
     setLoading(false);
@@ -414,6 +433,21 @@ export default function GamesPage() {
 
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
+      )}
+
+      {/* Wer spielt in welchem Team? */}
+      {teams.length > 0 && (
+        <section className="bg-white rounded-xl p-4 shadow mb-6">
+          <h2 className="font-semibold mb-2">Teams</h2>
+          <div className="space-y-1">
+            {teams.map((t) => (
+              <p key={t.id} className="text-gray-800">
+                <span className="font-bold">Team {t.team_number}:</span>{" "}
+                {(teamNames[t.id] ?? []).join(", ") || "–"}
+              </p>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Nächstes Spiel zählen */}

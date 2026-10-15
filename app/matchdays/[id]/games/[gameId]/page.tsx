@@ -24,6 +24,7 @@ export default function LiveGamePage() {
 
   const [game, setGame] = useState<Game | null>(null);
   const [teamNumbers, setTeamNumbers] = useState<Record<string, number>>({});
+  const [teamNames, setTeamNames] = useState<Record<string, string[]>>({});
   const [nextGameId, setNextGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -55,6 +56,24 @@ export default function LiveGamePage() {
       numbers[t.id] = t.team_number;
     });
 
+    const teamIdList = (teamRows ?? []).map((t) => t.id);
+    const names: Record<string, string[]> = {};
+    if (teamIdList.length > 0) {
+      const { data: tpRows } = await supabase
+        .from("team_players")
+        .select("team_id, players(nickname, name)")
+        .in("team_id", teamIdList);
+      (tpRows ?? []).forEach((row) => {
+        const p = (Array.isArray(row.players) ? row.players[0] : row.players) as
+          | { nickname: string | null; name: string }
+          | null
+          | undefined;
+        if (!p) return;
+        (names[row.team_id] ??= []).push(p.nickname ?? p.name);
+      });
+      Object.values(names).forEach((list) => list.sort((a, b) => a.localeCompare(b, "de")));
+    }
+
     // Nächstes noch nicht beendetes Spiel dieses Spieltags
     const { data: openGames } = await supabase
       .from("games")
@@ -71,6 +90,7 @@ export default function LiveGamePage() {
 
     setGame(gameRow);
     setTeamNumbers(numbers);
+    setTeamNames(names);
     setNextGameId(next ? next.id : null);
     setLoading(false);
   }, [gameId, matchDayId]);
@@ -161,8 +181,18 @@ export default function LiveGamePage() {
   const teamBName = `Team ${teamNumbers[game.team_b_id] ?? "?"}`;
 
   const sides = [
-    { key: "a" as const, name: teamAName, goals: game.goals_team_a },
-    { key: "b" as const, name: teamBName, goals: game.goals_team_b },
+    {
+      key: "a" as const,
+      name: teamAName,
+      goals: game.goals_team_a,
+      players: (teamNames[game.team_a_id] ?? []).join(", "),
+    },
+    {
+      key: "b" as const,
+      name: teamBName,
+      goals: game.goals_team_b,
+      players: (teamNames[game.team_b_id] ?? []).join(", "),
+    },
   ];
 
   return (
@@ -193,7 +223,12 @@ export default function LiveGamePage() {
             className="bg-white rounded-xl p-5 shadow"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">{side.name}</h2>
+              <div>
+                <h2 className="text-2xl font-bold">{side.name}</h2>
+                {side.players && (
+                  <p className="text-sm text-gray-600">{side.players}</p>
+                )}
+              </div>
               <span className="text-6xl font-bold tabular-nums">
                 {side.goals}
               </span>
