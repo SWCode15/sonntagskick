@@ -10,6 +10,13 @@ type MatchDay = {
   play_date: string;
   notes: string | null;
   started_at: string | null;
+  finished_at: string | null;
+};
+type GameRow = {
+  id: string;
+  finished: boolean;
+  goals_team_a: number;
+  goals_team_b: number;
 };
 type Team = { id: string; team_number: number };
 type Player = { id: string; name: string; nickname: string | null };
@@ -40,11 +47,14 @@ export default function MatchDayPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [gameRows, setGameRows] = useState<GameRow[]>([]);
+  const [showEndDialog, setShowEndDialog] = useState(false);
+  const [ending, setEnding] = useState(false);
 
   const load = useCallback(async () => {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
-      .select("id, play_date, notes, started_at")
+      .select("id, play_date, notes, started_at, finished_at")
       .eq("id", matchDayId)
       .single();
 
@@ -81,8 +91,14 @@ export default function MatchDayPage() {
       teamPlayerRows = data ?? [];
     }
 
+    const { data: gamesData } = await supabase
+      .from("games")
+      .select("id, finished, goals_team_a, goals_team_b")
+      .eq("match_day_id", matchDayId);
+
     const { data: adminFlag } = await supabase.rpc("is_admin");
 
+    setGameRows(gamesData ?? []);
     setIsAdmin(adminFlag === true);
     setMatchDay(md);
     setTeams(teamRows ?? []);
@@ -98,7 +114,16 @@ export default function MatchDayPage() {
 
   // Nach dem Start ist die Zuordnung für alle außer Admins gesperrt
   const started = !!matchDay?.started_at;
+  const dayFinished = !!matchDay?.finished_at;
   const locked = started && !isAdmin;
+
+  const finishedCount = gameRows.filter((g) => g.finished).length;
+  const inProgressCount = gameRows.filter(
+    (g) => !g.finished && (g.goals_team_a > 0 || g.goals_team_b > 0)
+  ).length;
+  const unplayedCount = gameRows.filter(
+    (g) => !g.finished && g.goals_team_a === 0 && g.goals_team_b === 0
+  ).length;
 
   const teamOfPlayer = new Map<string, string>();
   teamPlayers.forEach((tp) => teamOfPlayer.set(tp.player_id, tp.team_id));
@@ -194,6 +219,32 @@ export default function MatchDayPage() {
     setStarting(false);
   }
 
+  async function endMatchDay() {
+    setErrorMessage(null);
+    setEnding(true);
+    const { error } = await supabase.rpc("end_match_day", {
+      p_match_day_id: matchDayId,
+    });
+    if (error) {
+      setErrorMessage(`Fehler beim Beenden: ${error.message}`);
+    }
+    setShowEndDialog(false);
+    await load();
+    setEnding(false);
+  }
+
+  async function undoEnd() {
+    setErrorMessage(null);
+    const { error } = await supabase
+      .from("match_days")
+      .update({ finished_at: null })
+      .eq("id", matchDayId);
+    if (error) {
+      setErrorMessage(`Fehler: ${error.message}`);
+    }
+    await load();
+  }
+
   async function reopenMatchDay() {
     setErrorMessage(null);
     const { error } = await supabase
@@ -258,34 +309,123 @@ export default function MatchDayPage() {
 
       {/* Status des Spieltags */}
       {started ? (
-        <div className="rounded-xl border border-green-600 bg-white p-4 mb-4">
-          <p className="font-semibold text-green-800">
-            ✓ Spieltag gestartet
-            {matchDay.started_at
-              ? ` (${new Date(matchDay.started_at).toLocaleTimeString("de-AT", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZone: "Europe/Vienna",
-                })} Uhr)`
-              : ""}
-          </p>
-          {isAdmin ? (
-            <>
+        <div className="space-y-3 mb-4">
+          <div className="rounded-xl border border-green-600 bg-white p-4">
+            <p className="font-semibold text-green-800">
+              ✓ Spieltag gestartet
+              {matchDay.started_at
+                ? ` (${new Date(matchDay.started_at).toLocaleTimeString(
+                    "de-AT",
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: "Europe/Vienna",
+                    }
+                  )} Uhr)`
+                : ""}
+            </p>
+            {dayFinished ? (
+              <p className="font-semibold text-green-800 mt-1">
+                🏁 Spieltag beendet
+                {matchDay.finished_at
+                  ? ` (${new Date(matchDay.finished_at).toLocaleTimeString(
+                      "de-AT",
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "Europe/Vienna",
+                      }
+                    )} Uhr)`
+                  : ""}
+              </p>
+            ) : null}
+            {isAdmin ? (
               <p className="text-sm text-gray-600 mt-1">
                 Als Admin kannst du die Zuordnung weiter ändern.
               </p>
-              <button
-                type="button"
-                onClick={reopenMatchDay}
-                className="mt-2 rounded-xl border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700"
-              >
-                🔓 Spieltag wieder öffnen
-              </button>
-            </>
-          ) : (
-            <p className="text-sm text-gray-600 mt-1">
-              Die Teamzuordnung ist gesperrt. Änderungen nur durch einen Admin.
-            </p>
+            ) : (
+              <p className="text-sm text-gray-600 mt-1">
+                Die Teamzuordnung ist gesperrt. Änderungen nur durch einen
+                Admin.
+              </p>
+            )}
+          </div>
+
+          {/* Spieltag beenden (mit Kontrollfrage) */}
+          {!dayFinished && !showEndDialog && (
+            <button
+              type="button"
+              onClick={() => setShowEndDialog(true)}
+              className="rounded-xl bg-gray-800 px-6 py-4 text-lg font-semibold text-white"
+            >
+              🏁 Spieltag beenden
+            </button>
+          )}
+
+          {!dayFinished && showEndDialog && (
+            <div className="rounded-xl border-2 border-amber-500 bg-white p-5">
+              <p className="text-lg font-bold mb-2">
+                Spieltag wirklich beenden?
+              </p>
+              <p className="text-gray-700 mb-1">
+                {finishedCount === 1
+                  ? "1 Spiel ist beendet"
+                  : `${finishedCount} Spiele sind beendet`}
+                , das Ergebnis zählt bis hierher.
+              </p>
+              {unplayedCount > 0 && (
+                <p className="text-gray-700 mb-1">
+                  {unplayedCount === 1
+                    ? "1 nicht gespieltes Spiel wird entfernt."
+                    : `${unplayedCount} nicht gespielte Spiele werden entfernt.`}
+                </p>
+              )}
+              {inProgressCount > 0 && (
+                <p className="text-red-600 font-semibold mb-1">
+                  ⚠ Es läuft noch ein Spiel mit Toren. Bitte zuerst bei dem
+                  Spiel „Spiel beenden“ tippen.
+                </p>
+              )}
+              <p className="font-semibold mt-3 mb-2">Bist du sicher?</p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={ending || inProgressCount > 0}
+                  onClick={endMatchDay}
+                  className="rounded-xl bg-gray-800 px-6 py-3 text-lg font-semibold text-white disabled:opacity-50"
+                >
+                  {ending ? "Beendet…" : "Ja, Spieltag beenden"}
+                </button>
+                <button
+                  type="button"
+                  disabled={ending}
+                  onClick={() => setShowEndDialog(false)}
+                  className="rounded-xl border border-gray-400 bg-white px-6 py-3 text-lg font-semibold text-gray-700"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Nur Admins */}
+          {isAdmin && dayFinished && (
+            <button
+              type="button"
+              onClick={undoEnd}
+              className="rounded-xl border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700"
+            >
+              🔓 Beenden rückgängig machen
+            </button>
+          )}
+          {isAdmin && !dayFinished && (
+            <button
+              type="button"
+              onClick={reopenMatchDay}
+              className="rounded-xl border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700"
+            >
+              🔓 Spieltag wieder öffnen (Start zurücknehmen)
+            </button>
           )}
         </div>
       ) : (
@@ -303,6 +443,9 @@ export default function MatchDayPage() {
           {showStartDialog && (
             <div className="rounded-xl border-2 border-green-600 bg-white p-5">
               <p className="text-lg font-bold mb-2">
+                Spieltag wirklich starten?
+              </p>
+              <p className="text-gray-700 mb-2">
                 Sind alle Spieler richtig zugeordnet?
               </p>
               <div className="flex flex-wrap gap-2 mb-3">
@@ -333,7 +476,8 @@ export default function MatchDayPage() {
                 Nach dem Start ist die Zuordnung gesperrt. Änderungen sind dann
                 nur noch durch einen Admin möglich.
               </p>
-              <div className="flex flex-wrap gap-3 mt-4">
+              <p className="font-semibold mt-3 mb-2">Bist du sicher?</p>
+              <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
                   disabled={starting}

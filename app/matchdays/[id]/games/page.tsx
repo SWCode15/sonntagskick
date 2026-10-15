@@ -36,6 +36,62 @@ function formatDate(isoDate: string) {
   });
 }
 
+// Knopf mit Kontrollfrage: erster Tipp fragt "Bist du sicher?"
+function ConfirmButton({
+  label,
+  question,
+  onConfirm,
+  disabled,
+  className,
+}: {
+  label: string;
+  question: string;
+  onConfirm: () => void;
+  disabled?: boolean;
+  className: string;
+}) {
+  const [asking, setAsking] = useState(false);
+
+  if (!asking) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setAsking(true)}
+        className={className}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-400 bg-amber-50 p-3">
+      <p className="font-semibold text-amber-900 mb-2">{question}</p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            setAsking(false);
+            onConfirm();
+          }}
+          className="rounded-xl bg-green-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+        >
+          Ja
+        </button>
+        <button
+          type="button"
+          onClick={() => setAsking(false)}
+          className="rounded-xl border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-800"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function GamesPage() {
   const params = useParams<{ id: string }>();
   const matchDayId = params.id;
@@ -45,10 +101,17 @@ export default function GamesPage() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(false);
+  const [dayFinished, setDayFinished] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Formular "Einzelnes Spiel"
+  // Standard mit 3 Teams: Auswahl merken wir uns, bis sie bestätigt wird
+  // (erst dann geht etwas in die Datenbank).
+  const [pendingPair, setPendingPair] = useState<[string, string] | null>(null);
+  const [stayer, setStayer] = useState<string | null>(null);
+
+  // Formular "Einzelnes Spiel" (nur Admin)
   const [freeA, setFreeA] = useState<string | null>(null);
   const [freeB, setFreeB] = useState<string | null>(null);
   const [freeRound, setFreeRound] = useState<number | null>(null);
@@ -56,7 +119,7 @@ export default function GamesPage() {
   const load = useCallback(async () => {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
-      .select("id, play_date, started_at")
+      .select("id, play_date, started_at, finished_at")
       .eq("id", matchDayId)
       .single();
 
@@ -80,8 +143,12 @@ export default function GamesPage() {
       .eq("match_day_id", matchDayId)
       .order("game_number", { ascending: true, nullsFirst: false });
 
+    const { data: adminFlag } = await supabase.rpc("is_admin");
+
     setPlayDate(md.play_date);
     setStarted(!!md.started_at);
+    setDayFinished(!!md.finished_at);
+    setIsAdmin(adminFlag === true);
     setTeams(teamRows ?? []);
     setGames(gameRows ?? []);
     setLoading(false);
@@ -100,6 +167,7 @@ export default function GamesPage() {
     games.reduce((max, g) => Math.max(max, g.game_number ?? 0), 0) + 1;
   const lastRound = games.reduce((max, g) => Math.max(max, g.round_number), 0);
 
+  // --- Admin: Spiele direkt anlegen/löschen ---
   async function insertGames(rows: NewGame[]) {
     setErrorMessage(null);
     setBusy(true);
@@ -126,30 +194,51 @@ export default function GamesPage() {
     };
   }
 
-  // --- Standard mit 3 Teams ---
+  // --- Standard mit 3 Teams (alle dürfen) ---
+  // Schritt 1: erstes Spiel anlegen. Schritt 2: nach dem ersten Spiel
+  // entscheiden, welches Team bleibt, dann entstehen alle restlichen Spiele.
   const isThreeTeams = teams.length === 3;
 
-  async function startWithPairing(a: string, b: string) {
-    await insertGames([makeGame(nextGameNumber, 1, a, b)]);
+  async function createFirstGame() {
+    if (!pendingPair) return;
+    setErrorMessage(null);
+    setBusy(true);
+    const { error } = await supabase.rpc("create_first_game", {
+      p_match_day_id: matchDayId,
+      p_team_a: pendingPair[0],
+      p_team_b: pendingPair[1],
+    });
+    if (error) {
+      setErrorMessage(`Fehler beim Anlegen: ${error.message}`);
+    } else {
+      setPendingPair(null);
+    }
+    await load();
+    setBusy(false);
   }
 
-  async function chooseStayer(stayerId: string) {
-    const first = games[0];
-    const third = teams.find(
-      (t) => t.id !== first.team_a_id && t.id !== first.team_b_id
-    );
-    if (!third) return;
-    const other =
-      stayerId === first.team_a_id ? first.team_b_id : first.team_a_id;
-    await insertGames([
-      makeGame(nextGameNumber, 1, stayerId, third.id),
-      makeGame(nextGameNumber + 1, 1, other, third.id),
-    ]);
+  async function createRemainingGames() {
+    if (!stayer) return;
+    setErrorMessage(null);
+    setBusy(true);
+    const { error } = await supabase.rpc("create_remaining_games", {
+      p_match_day_id: matchDayId,
+      p_stayer: stayer,
+      p_rounds: STANDARD_ROUNDS,
+    });
+    if (error) {
+      setErrorMessage(`Fehler beim Anlegen: ${error.message}`);
+    } else {
+      setStayer(null);
+    }
+    await load();
+    setBusy(false);
   }
 
+  // --- Admin: Runden anpassen ---
   function roundRows(roundNo: number, startNumber: number): NewGame[] {
     // Reihenfolge der ersten Runde wiederholen
-    const pattern = games.slice(0, 3);
+    const pattern = games.filter((g) => g.round_number === 1).slice(0, 3);
     return pattern.map((g, i) =>
       makeGame(startNumber + i, roundNo, g.team_a_id, g.team_b_id)
     );
@@ -159,17 +248,34 @@ export default function GamesPage() {
     await insertGames(roundRows(lastRound + 1, nextGameNumber));
   }
 
-  async function addAllRounds() {
-    const rows: NewGame[] = [];
-    let number = nextGameNumber;
-    for (let round = lastRound + 1; round <= STANDARD_ROUNDS; round++) {
-      rows.push(...roundRows(round, number));
-      number += 3;
+  async function removeLastRound() {
+    setErrorMessage(null);
+    const inLast = games.filter((g) => g.round_number === lastRound);
+    const allUnplayed = inLast.every(
+      (g) => !g.finished && g.goals_team_a === 0 && g.goals_team_b === 0
+    );
+    if (!allUnplayed) {
+      setErrorMessage(
+        "In der letzten Runde wurde schon gespielt. Nur unbegonnene Spiele lassen sich entfernen."
+      );
+      return;
     }
-    await insertGames(rows);
+    setBusy(true);
+    const { error } = await supabase
+      .from("games")
+      .delete()
+      .in(
+        "id",
+        inLast.map((g) => g.id)
+      );
+    if (error) {
+      setErrorMessage(`Fehler beim Entfernen: ${error.message}`);
+    }
+    await load();
+    setBusy(false);
   }
 
-  // --- Einzelnes Spiel ---
+  // --- Admin: Einzelnes Spiel ---
   const pairsPerRound = (teams.length * (teams.length - 1)) / 2;
   const defaultRound =
     pairsPerRound > 0 ? Math.floor(games.length / pairsPerRound) + 1 : 1;
@@ -227,17 +333,6 @@ export default function GamesPage() {
     (a, b) => a - b
   );
 
-  const firstGame = games[0];
-  const threeTeamStep: "start" | "stayer" | "rounds" | null = !isThreeTeams
-    ? null
-    : games.length === 0
-    ? "start"
-    : games.length === 1
-    ? "stayer"
-    : games.length % 3 === 0
-    ? "rounds"
-    : null;
-
   const btnBase =
     "rounded-xl border px-4 py-4 text-lg font-semibold disabled:opacity-50";
 
@@ -269,6 +364,32 @@ export default function GamesPage() {
     );
   }
 
+  // Welcher Schritt des Standards (3 Teams) ist dran?
+  const firstGame = games.length === 1 ? games[0] : null;
+  const standardActive = isThreeTeams && started && !dayFinished;
+  const standardStep: "first" | "wait" | "stayer" | null = !standardActive
+    ? null
+    : games.length === 0
+    ? "first"
+    : firstGame && !firstGame.finished
+    ? "wait"
+    : firstGame && firstGame.finished
+    ? "stayer"
+    : null;
+
+  const thirdTeam =
+    firstGame && isThreeTeams
+      ? teams.find(
+          (t) => t.id !== firstGame.team_a_id && t.id !== firstGame.team_b_id
+        )
+      : undefined;
+  const otherTeamId =
+    firstGame && stayer
+      ? stayer === firstGame.team_a_id
+        ? firstGame.team_b_id
+        : firstGame.team_a_id
+      : null;
+
   return (
     <main className="min-h-screen bg-green-100 p-6">
       <Link
@@ -280,6 +401,12 @@ export default function GamesPage() {
 
       <h1 className="text-3xl font-bold mt-2 mb-1">⚽ Spiele</h1>
       <p className="text-gray-600 mb-6">{formatDate(playDate)}</p>
+
+      {dayFinished && (
+        <p className="rounded-xl border border-green-600 bg-white p-4 mb-6 font-semibold text-green-800">
+          🏁 Der Spieltag ist beendet.
+        </p>
+      )}
 
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
@@ -299,6 +426,7 @@ export default function GamesPage() {
                 .filter((g) => g.round_number === round)
                 .map((game) => {
                   const removable =
+                    isAdmin &&
                     !game.finished &&
                     game.goals_team_a === 0 &&
                     game.goals_team_b === 0;
@@ -328,14 +456,13 @@ export default function GamesPage() {
                           {game.finished ? "Ansehen" : "Zählen"}
                         </Link>
                         {removable && (
-                          <button
-                            type="button"
+                          <ConfirmButton
+                            label="Entfernen"
+                            question="Spiel wirklich entfernen?"
                             disabled={busy}
-                            onClick={() => removeGame(game.id)}
+                            onConfirm={() => removeGame(game.id)}
                             className="rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50"
-                          >
-                            Entfernen
-                          </button>
+                          />
                         )}
                       </div>
                     </div>
@@ -346,10 +473,14 @@ export default function GamesPage() {
         ))}
       </div>
 
-      {/* Standard mit 3 Teams */}
-      {threeTeamStep === "start" && (
+      {/* Standard mit 3 Teams, Schritt 1: erstes Spiel wählen */}
+      {standardStep === "first" && !pendingPair && (
         <section className="bg-white rounded-xl p-5 shadow mb-6">
-          <h2 className="font-semibold mb-3">Erstes Spiel wählen</h2>
+          <h2 className="font-semibold mb-1">Erstes Spiel wählen</h2>
+          <p className="text-sm text-gray-600 mb-3">
+            Welches Team bleibt, entscheidest du erst nach dem ersten Spiel.
+            Danach legt die App alle {STANDARD_ROUNDS} Runden an.
+          </p>
           <div className="grid grid-cols-1 gap-2">
             {[
               [teams[0], teams[1]],
@@ -360,7 +491,7 @@ export default function GamesPage() {
                 key={`${a.id}-${b.id}`}
                 type="button"
                 disabled={busy}
-                onClick={() => startWithPairing(a.id, b.id)}
+                onClick={() => setPendingPair([a.id, b.id])}
                 className={`${btnBase} bg-green-600 border-green-600 text-white`}
               >
                 Team {a.team_number} : Team {b.team_number}
@@ -370,11 +501,50 @@ export default function GamesPage() {
         </section>
       )}
 
-      {threeTeamStep === "stayer" && firstGame && (
+      {standardStep === "first" && pendingPair && (
+        <section className="bg-white rounded-xl p-5 shadow mb-6 border-2 border-green-600">
+          <h2 className="font-bold text-lg mb-2">
+            Erstes Spiel: {teamLabel(pendingPair[0])} :{" "}
+            {teamLabel(pendingPair[1])}
+          </h2>
+          <p className="font-semibold mb-2">Bist du sicher?</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={createFirstGame}
+              className={`${btnBase} bg-green-600 border-green-600 text-white`}
+            >
+              Ja, anlegen
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setPendingPair(null)}
+              className={`${btnBase} bg-white border-gray-300 text-gray-800`}
+            >
+              Zurück
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Schritt 2a: das erste Spiel läuft noch */}
+      {standardStep === "wait" && (
+        <p className="bg-white rounded-xl p-5 shadow mb-6 text-gray-700">
+          Das erste Spiel läuft. Tippe dort auf „Spiel beenden“. Danach
+          entscheidest du hier, welches Team bleibt.
+        </p>
+      )}
+
+      {/* Schritt 2b: wer bleibt? */}
+      {standardStep === "stayer" && firstGame && !stayer && (
         <section className="bg-white rounded-xl p-5 shadow mb-6">
           <h2 className="font-semibold mb-1">Welches Team bleibt?</h2>
           <p className="text-sm text-gray-600 mb-3">
-            Danach stehen Spiel 2 und 3 der Runde fest.
+            Erstes Spiel: {teamLabel(firstGame.team_a_id)} :{" "}
+            {teamLabel(firstGame.team_b_id)} ({firstGame.goals_team_a} :{" "}
+            {firstGame.goals_team_b})
           </p>
           <div className="grid grid-cols-2 gap-2">
             {[firstGame.team_a_id, firstGame.team_b_id].map((teamId) => (
@@ -382,7 +552,7 @@ export default function GamesPage() {
                 key={teamId}
                 type="button"
                 disabled={busy}
-                onClick={() => chooseStayer(teamId)}
+                onClick={() => setStayer(teamId)}
                 className={`${btnBase} bg-green-600 border-green-600 text-white`}
               >
                 {teamLabel(teamId)}
@@ -392,105 +562,161 @@ export default function GamesPage() {
         </section>
       )}
 
-      {threeTeamStep === "rounds" && (
-        <section className="bg-white rounded-xl p-5 shadow mb-6 space-y-2">
-          <h2 className="font-semibold mb-1">Weitere Runden</h2>
-          <p className="text-sm text-gray-600 mb-2">
-            Die Reihenfolge der ersten Runde wird wiederholt.
-          </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={addNextRound}
-            className={`${btnBase} w-full bg-green-600 border-green-600 text-white`}
-          >
-            Runde {lastRound + 1} anlegen
-          </button>
-          {lastRound < STANDARD_ROUNDS && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={addAllRounds}
-              className={`${btnBase} w-full bg-white border-green-600 text-green-800`}
-            >
-              Alle Runden bis Runde {STANDARD_ROUNDS} anlegen
-            </button>
-          )}
-        </section>
+      {/* Schritt 2c: bestätigen */}
+      {standardStep === "stayer" &&
+        firstGame &&
+        stayer &&
+        thirdTeam &&
+        otherTeamId && (
+          <section className="bg-white rounded-xl p-5 shadow mb-6 border-2 border-green-600">
+            <h2 className="font-bold text-lg mb-2">
+              Restliche Spiele anlegen?
+            </h2>
+            <p className="text-gray-700 mb-1">
+              {teamLabel(stayer)} bleibt. So läuft jede Runde:
+            </p>
+            <ol className="list-decimal list-inside text-gray-800 font-semibold mb-3">
+              <li>
+                {teamLabel(firstGame.team_a_id)} :{" "}
+                {teamLabel(firstGame.team_b_id)}
+              </li>
+              <li>
+                {teamLabel(stayer)} : {teamLabel(thirdTeam.id)}
+              </li>
+              <li>
+                {teamLabel(otherTeamId)} : {teamLabel(thirdTeam.id)}
+              </li>
+            </ol>
+            <p className="text-sm text-gray-600 mb-4">
+              Das gibt {STANDARD_ROUNDS} Runden mit {STANDARD_ROUNDS * 3} Spielen
+              (das erste ist schon gespielt). Danach kann nur noch ein Admin
+              Spiele ändern. Wenn früher Schluss ist, beendest du den Spieltag.
+            </p>
+            <p className="font-semibold mb-2">Bist du sicher?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={createRemainingGames}
+                className={`${btnBase} bg-green-600 border-green-600 text-white`}
+              >
+                Ja, anlegen
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setStayer(null)}
+                className={`${btnBase} bg-white border-gray-300 text-gray-800`}
+              >
+                Zurück
+              </button>
+            </div>
+          </section>
+        )}
+
+      {/* Hinweis, wenn kein Standard möglich ist */}
+      {!isAdmin && !dayFinished && games.length === 0 && !isThreeTeams && (
+        <p className="bg-white rounded-xl p-5 shadow text-gray-700">
+          Bei diesem Spieltag legt ein Admin die Spiele an.
+        </p>
       )}
 
-      {/* Einzelnes Spiel (immer möglich) */}
-      <section className="bg-white rounded-xl p-5 shadow">
-        <h2 className="font-semibold mb-3">Einzelnes Spiel hinzufügen</h2>
+      {/* Nur Admins: Runden und Spiele anpassen */}
+      {isAdmin && (
+        <section className="bg-white rounded-xl p-5 shadow mb-6 space-y-3">
+          <h2 className="font-semibold">Admin: Runden anpassen</h2>
 
-        <p className="text-sm text-gray-600 mb-1">Erstes Team</p>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {teams.map((team) => (
-            <button
-              key={team.id}
-              type="button"
-              onClick={() => setFreeA(team.id)}
-              className={
-                "h-14 min-w-14 px-4 rounded-xl border text-xl font-bold " +
-                (freeA === team.id
-                  ? "bg-green-600 border-green-600 text-white"
-                  : "bg-white border-gray-300 text-gray-800")
-              }
-            >
-              {team.team_number}
-            </button>
-          ))}
-        </div>
+          {isThreeTeams && games.length >= 3 && (
+            <div className="space-y-2">
+              <ConfirmButton
+                label={`➕ Runde ${lastRound + 1} anlegen`}
+                question={`Runde ${lastRound + 1} wirklich anlegen?`}
+                disabled={busy}
+                onConfirm={addNextRound}
+                className={`${btnBase} w-full bg-green-600 border-green-600 text-white`}
+              />
+              <ConfirmButton
+                label={`➖ Runde ${lastRound} entfernen`}
+                question={`Runde ${lastRound} wirklich entfernen?`}
+                disabled={busy}
+                onConfirm={removeLastRound}
+                className={`${btnBase} w-full bg-white border-gray-300 text-gray-800`}
+              />
+            </div>
+          )}
 
-        <p className="text-sm text-gray-600 mb-1">gegen</p>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {teams.map((team) => (
-            <button
-              key={team.id}
-              type="button"
-              onClick={() => setFreeB(team.id)}
-              className={
-                "h-14 min-w-14 px-4 rounded-xl border text-xl font-bold " +
-                (freeB === team.id
-                  ? "bg-green-600 border-green-600 text-white"
-                  : "bg-white border-gray-300 text-gray-800")
-              }
-            >
-              {team.team_number}
-            </button>
-          ))}
-        </div>
+          <div>
+            <h3 className="font-semibold mb-2">Einzelnes Spiel hinzufügen</h3>
 
-        <p className="text-sm text-gray-600 mb-1">Runde</p>
-        <div className="flex items-center gap-4 mb-4">
-          <button
-            type="button"
-            onClick={() => setFreeRound(Math.max(1, roundForFree - 1))}
-            className="h-12 w-12 rounded-xl border border-gray-300 text-2xl font-bold"
-          >
-            −
-          </button>
-          <span className="text-2xl font-bold w-8 text-center">
-            {roundForFree}
-          </span>
-          <button
-            type="button"
-            onClick={() => setFreeRound(roundForFree + 1)}
-            className="h-12 w-12 rounded-xl border border-gray-300 text-2xl font-bold"
-          >
-            +
-          </button>
-        </div>
+            <p className="text-sm text-gray-600 mb-1">Erstes Team</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {teams.map((team) => (
+                <button
+                  key={team.id}
+                  type="button"
+                  onClick={() => setFreeA(team.id)}
+                  className={
+                    "h-14 min-w-14 px-4 rounded-xl border text-xl font-bold " +
+                    (freeA === team.id
+                      ? "bg-green-600 border-green-600 text-white"
+                      : "bg-white border-gray-300 text-gray-800")
+                  }
+                >
+                  {team.team_number}
+                </button>
+              ))}
+            </div>
 
-        <button
-          type="button"
-          disabled={busy}
-          onClick={addFreeGame}
-          className={`${btnBase} w-full bg-green-600 border-green-600 text-white`}
-        >
-          Spiel anlegen
-        </button>
-      </section>
+            <p className="text-sm text-gray-600 mb-1">gegen</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {teams.map((team) => (
+                <button
+                  key={team.id}
+                  type="button"
+                  onClick={() => setFreeB(team.id)}
+                  className={
+                    "h-14 min-w-14 px-4 rounded-xl border text-xl font-bold " +
+                    (freeB === team.id
+                      ? "bg-green-600 border-green-600 text-white"
+                      : "bg-white border-gray-300 text-gray-800")
+                  }
+                >
+                  {team.team_number}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-sm text-gray-600 mb-1">Runde</p>
+            <div className="flex items-center gap-4 mb-4">
+              <button
+                type="button"
+                onClick={() => setFreeRound(Math.max(1, roundForFree - 1))}
+                className="h-12 w-12 rounded-xl border border-gray-300 text-2xl font-bold"
+              >
+                −
+              </button>
+              <span className="text-2xl font-bold w-8 text-center">
+                {roundForFree}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFreeRound(roundForFree + 1)}
+                className="h-12 w-12 rounded-xl border border-gray-300 text-2xl font-bold"
+              >
+                +
+              </button>
+            </div>
+
+            <ConfirmButton
+              label="Spiel anlegen"
+              question="Dieses Spiel wirklich anlegen?"
+              disabled={busy}
+              onConfirm={addFreeGame}
+              className={`${btnBase} w-full bg-green-600 border-green-600 text-white`}
+            />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
