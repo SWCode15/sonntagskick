@@ -83,7 +83,7 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 ### 3.2 Spätere Updates (nicht jetzt bauen, aber nicht verbauen)
 - Torschützen pro Tor (eigene Tabelle, für echten „Torgefährlichsten“)
 - 7-Minuten-Stoppuhr mit Signal
-- Automatische Auslosung per Knopfdruck (mit Tauschen)
+- Automatische Auslosung per Knopfdruck (mit Tauschen), geringe Priorität, siehe 9.1
 - Weitere Auswertungen
 
 ---
@@ -298,6 +298,9 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 ## 9. Offene Punkte / nächste Schritte
 
 ### 9.1 Merkliste für die nächste Sitzung (vom Nutzer gewünscht, unbedingt aufgreifen)
+0. **Rollenkonzept diskutieren (Wunsch des Nutzers, 15.10.2026), vor dem Verteilen des Links:** Der gemeinsame Rundenzugang erlaubt jedem mit Link und Passwort, vorab Spieler, Spieltage und Daten einzutragen (absichtlich oder versehentlich). Vorschlag: (a) **Lesen für alle**, ohne Eintragen; (b) neue Rolle **„Eintragen“**, die **nur an Spieltagen** funktioniert und auf **2 bis 3 Nutzer gleichzeitig** begrenzt ist; (c) **Admins** wie gehabt (alles). Zu klären: technische Begrenzung gleichzeitiger Nutzer, Zeitfenster (Sonntag, Europe/Vienna) oder Freischaltung durch Admin am Spieltag, welche Aktionen der Schreiber darf, Auswirkungen auf RLS (Rolle/Tabelle `writers`, Funktionen prüfen Rolle und Spieltag) und Oberfläche. Betrifft Abschnitt 4. **Diskussionsfragen:** (1) Wie begrenzt man „2 bis 3 gleichzeitig“ (harte Grenze aufwendig, einfachere Wege prüfen)? (2) „Nur an Spieltagen“: Zeitfenster Sonntag oder Freischaltung durch Admin? (3) Was darf der Eintragende, was der reine Leser?
+0b. **Admin: Spieler ändern** (Name, Spitzname, aktiv/inaktiv), falls sich jemand beim Eintragen vertippt hat. Oberfläche fehlt heute.
+0c. **Neues Feature, geringe Priorität: Auslosung der Teams per Knopfdruck** (zufällig, mit Tauschen; siehe 3.2). Beachten: gleich große Teams (normal 4), Nicht-Anwesende ausnehmen, Ergebnis bestätigen, dann erst zuordnen.
 1. **Erinnerung (auf Wunsch des Nutzers): Team 4 / „Spieltag bearbeiten“.** Admin: Datum, Modus, Kommentar ändern, Team ergänzen, Spieltag löschen. Modus-Wechsel auf 2 oder 4 Teams; bei 2 Teams Runden erweiterbar (Admin). Niedrige Priorität, 95 % der Spieltage sind 3 Teams und 4 Runden. Bis dahin Notlösung: Team in Supabase von Hand eintragen oder Spieltag mit 4 Teams neu anlegen, solange nichts eingetragen ist.
 
 ### 9.2 Weitere offene Punkte
