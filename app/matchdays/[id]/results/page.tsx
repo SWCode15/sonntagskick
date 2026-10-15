@@ -15,6 +15,8 @@ type Game = {
   finished: boolean;
 };
 type TeamPlayer = { team_id: string; player_id: string };
+type AwardType = "crown" | "strichl";
+type Award = { award_type: AwardType; team_id: string };
 type Player = { id: string; name: string; nickname: string | null };
 
 type Row = {
@@ -52,13 +54,23 @@ export default function ResultsPage() {
   const [games, setGames] = useState<Game[]>([]);
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [dayFinished, setDayFinished] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [awards, setAwards] = useState<Award[]>([]);
+  const [picks, setPicks] = useState<Record<AwardType, string[]>>({
+    crown: [],
+    strichl: [],
+  });
+  const [asking, setAsking] = useState<AwardType | null>(null);
+  const [clearing, setClearing] = useState<AwardType | null>(null);
+  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
-      .select("id, play_date")
+      .select("id, play_date, finished_at")
       .eq("id", matchDayId)
       .single();
 
@@ -101,7 +113,16 @@ export default function ResultsPage() {
       }
     }
 
+    const { data: awardRows } = await supabase
+      .from("match_day_awards")
+      .select("award_type, team_id")
+      .eq("match_day_id", matchDayId);
+    const { data: adminFlag } = await supabase.rpc("is_admin");
+
     setPlayDate(md.play_date);
+    setDayFinished(!!md.finished_at);
+    setAwards((awardRows ?? []) as Award[]);
+    setIsAdmin(adminFlag === true);
     setTeams(teamRows ?? []);
     setGames(gameRows ?? []);
     setTeamPlayers(tpRows);
@@ -209,8 +230,233 @@ export default function ResultsPage() {
   const crownTie = !allEqual && crownRows.length > 1;
   const strichlTie = !allEqual && strichlRows.length > 1;
 
-  const crownIds = new Set(allEqual ? [] : crownRows.map((r) => r.team.id));
-  const strichlIds = new Set(allEqual ? [] : strichlRows.map((r) => r.team.id));
+  // Entscheidungen von Hand (nur bei beendetem Spieltag gültig)
+  const decidedTeams = (type: AwardType) =>
+    awards.filter((a) => a.award_type === type).map((a) => a.team_id);
+  const crownDecided = decidedTeams("crown");
+  const strichlDecided = decidedTeams("strichl");
+  const crownManual = dayFinished && crownDecided.length > 0;
+  const strichlManual = dayFinished && strichlDecided.length > 0;
+
+  const crownIds = new Set(
+    crownManual
+      ? crownDecided
+      : allEqual
+      ? []
+      : crownRows.map((r) => r.team.id)
+  );
+  const strichlIds = new Set(
+    strichlManual
+      ? strichlDecided
+      : allEqual
+      ? []
+      : strichlRows.map((r) => r.team.id)
+  );
+  const teamName = (teamId: string) => {
+    const t = teams.find((x) => x.id === teamId);
+    return t ? `Team ${t.team_number}` : "?";
+  };
+
+  function togglePick(type: AwardType, teamId: string) {
+    setAsking(null);
+    setPicks((prev) => ({
+      ...prev,
+      [type]: prev[type].includes(teamId)
+        ? prev[type].filter((id) => id !== teamId)
+        : [...prev[type], teamId],
+    }));
+  }
+
+  async function saveAward(type: AwardType) {
+    if (picks[type].length === 0 || busy) return;
+    setErrorMessage(null);
+    setBusy(true);
+    const { error } = await supabase.from("match_day_awards").insert(
+      picks[type].map((teamId) => ({
+        match_day_id: matchDayId,
+        award_type: type,
+        team_id: teamId,
+        notes: "von Hand entschieden",
+      }))
+    );
+    if (error) {
+      setErrorMessage(`Fehler beim Speichern: ${error.message}`);
+    } else {
+      setPicks((prev) => ({ ...prev, [type]: [] }));
+      setAsking(null);
+    }
+    await load();
+    setBusy(false);
+  }
+
+  async function clearAward(type: AwardType) {
+    if (busy) return;
+    setErrorMessage(null);
+    setBusy(true);
+    const { error } = await supabase
+      .from("match_day_awards")
+      .delete()
+      .eq("match_day_id", matchDayId)
+      .eq("award_type", type);
+    if (error) {
+      setErrorMessage(`Fehler beim Löschen: ${error.message}`);
+    }
+    setClearing(null);
+    await load();
+    setBusy(false);
+  }
+
+  function renderAward(type: AwardType) {
+    const isCrown = type === "crown";
+    const title = isCrown ? "👑 Krone" : "❌ Strichl";
+    const manual = isCrown ? crownManual : strichlManual;
+    const decided = isCrown ? crownDecided : strichlDecided;
+    const tiedRows = isCrown ? crownRows : strichlRows;
+    const tie = allEqual || (isCrown ? crownTie : strichlTie);
+    const candidates = allEqual
+      ? ranking.map((r) => r.team.id)
+      : tiedRows.map((r) => r.team.id);
+    const picked = picks[type];
+
+    return (
+      <div key={type}>
+        <p className="font-semibold">
+          {title}
+          {!dayFinished && !manual ? " (vorläufig)" : ""}
+        </p>
+
+        {manual && (
+          <>
+            <p className="text-xl font-bold">
+              {decided.map((id) => teamName(id)).join(" und ")}
+            </p>
+            <p className="text-sm text-gray-600">von Hand entschieden</p>
+            {isAdmin && clearing !== type && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setClearing(type)}
+                className="mt-2 rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-700"
+              >
+                Entscheidung ändern (Admin)
+              </button>
+            )}
+            {isAdmin && clearing === type && (
+              <div className="mt-2">
+                <p className="font-semibold mb-2">
+                  Entscheidung löschen und neu festlegen? Bist du sicher?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => clearAward(type)}
+                    className="rounded-xl bg-green-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+                  >
+                    Ja, löschen
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setClearing(null)}
+                    className="rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-800"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            )}
+            {!isAdmin && (
+              <p className="text-xs text-gray-500 mt-1">
+                Ändern kann nur ein Admin.
+              </p>
+            )}
+          </>
+        )}
+
+        {!manual && !tie && (
+          <p className="text-xl font-bold">{teamList(tiedRows)}</p>
+        )}
+
+        {!manual && tie && !dayFinished && (
+          <p className="text-amber-700 font-medium">
+            {allEqual
+              ? "Alle Teams gleichauf."
+              : "Gleichstand bei Punkten und Tordifferenz."}{" "}
+            Die Entscheidung von Hand ist möglich, sobald der Spieltag
+            beendet ist.
+          </p>
+        )}
+
+        {!manual && tie && dayFinished && (
+          <div className="mt-1">
+            <p className="text-amber-700 font-medium mb-2">
+              {allEqual
+                ? "Alle Teams gleichauf."
+                : "Gleichstand bei Punkten und Tordifferenz."}{" "}
+              Wer bekommt {isCrown ? "die Krone" : "das Strichl"}? Mehrere
+              Teams sind möglich.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {candidates.map((teamId) => (
+                <button
+                  key={teamId}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => togglePick(type, teamId)}
+                  className={
+                    "h-14 px-4 rounded-xl border text-lg font-bold disabled:opacity-50 " +
+                    (picked.includes(teamId)
+                      ? "bg-green-600 border-green-600 text-white"
+                      : "bg-white border-gray-300 text-gray-800")
+                  }
+                >
+                  {teamName(teamId)}
+                </button>
+              ))}
+            </div>
+            {picked.length > 0 && asking !== type && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setAsking(type)}
+                className="rounded-xl bg-gray-800 px-4 py-3 font-semibold text-white"
+              >
+                Festlegen
+              </button>
+            )}
+            {picked.length > 0 && asking === type && (
+              <div>
+                <p className="font-semibold mb-2">
+                  {isCrown ? "Krone" : "Strichl"} für{" "}
+                  {picked.map((id) => teamName(id)).join(" und ")}. Bist du
+                  sicher?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => saveAward(type)}
+                    className="rounded-xl bg-green-600 px-4 py-3 font-semibold text-white disabled:opacity-50"
+                  >
+                    Ja, festlegen
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setAsking(null)}
+                    className="rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-800"
+                  >
+                    Zurück
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Hinweis: Teams mit unterschiedlich vielen beendeten Spielen
   const playedCounts = ranking.map((r) => r.played);
@@ -247,8 +493,12 @@ export default function ResultsPage() {
       <p className="text-gray-600 mb-2">{formatDate(playDate)}</p>
       <p className="text-sm text-gray-600 mb-6">
         {finishedGames.length} von {games.length} Spielen beendet
-        {games.length > 0 && !allFinished ? " (Zwischenstand)" : ""}
+        {dayFinished ? " · Spieltag beendet (Endstand)" : games.length > 0 && !allFinished ? " (Zwischenstand)" : ""}
       </p>
+
+      {errorMessage && (
+        <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
+      )}
 
       {!hasResults && (
         <p className="bg-white rounded-xl p-5 shadow text-gray-700">
@@ -277,48 +527,9 @@ export default function ResultsPage() {
           )}
 
           {/* Krone und Strichl */}
-          <section className="bg-white rounded-xl p-5 shadow mb-6 space-y-3">
-            <div>
-              <p className="font-semibold">
-                👑 Krone{!allFinished ? " (vorläufig)" : ""}
-              </p>
-              {allEqual ? (
-                <p className="text-amber-700 font-medium">
-                  Alle Teams gleichauf. Entscheidung von Hand nötig.
-                </p>
-              ) : (
-                <>
-                  <p className="text-xl font-bold">{teamList(crownRows)}</p>
-                  {crownTie && (
-                    <p className="text-amber-700 text-sm font-medium">
-                      Gleichstand bei Punkten und Tordifferenz. Entscheidung von
-                      Hand nötig.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div>
-              <p className="font-semibold">
-                ❌ Strichl{!allFinished ? " (vorläufig)" : ""}
-              </p>
-              {allEqual ? (
-                <p className="text-amber-700 font-medium">
-                  Alle Teams gleichauf. Entscheidung von Hand nötig.
-                </p>
-              ) : (
-                <>
-                  <p className="text-xl font-bold">{teamList(strichlRows)}</p>
-                  {strichlTie && (
-                    <p className="text-amber-700 text-sm font-medium">
-                      Gleichstand bei Punkten und Tordifferenz. Entscheidung von
-                      Hand nötig.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+          <section className="bg-white rounded-xl p-5 shadow mb-6 space-y-5">
+            {renderAward("crown")}
+            {renderAward("strichl")}
           </section>
 
           {/* Tabelle */}

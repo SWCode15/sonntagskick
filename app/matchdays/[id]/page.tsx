@@ -235,6 +235,11 @@ export default function MatchDayPage() {
 
   async function undoEnd() {
     setErrorMessage(null);
+    // Entscheidungen bei Gleichstand gelten nur für den beendeten Stand
+    await supabase
+      .from("match_day_awards")
+      .delete()
+      .eq("match_day_id", matchDayId);
     const { error } = await supabase
       .from("match_days")
       .update({ finished_at: null })
