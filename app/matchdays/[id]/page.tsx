@@ -271,6 +271,14 @@ export default function MatchDayPage() {
         `Team ${t.team.team_number} hat ${maxCount - t.count} Spieler weniger als das größte Team.`
     );
 
+  // Hinweis vor dem Start: normalerweise 4 Spieler pro Team
+  const startHints = teamCounts
+    .filter((t) => t.count !== 4)
+    .map(
+      (t) =>
+        `Team ${t.team.team_number} hat ${t.count} Spieler (normal sind 4).`
+    );
+
   const absentNames = players
     .filter((p) => !presentIds.has(p.id))
     .map((p) => p.nickname ?? p.name);
@@ -458,11 +466,22 @@ export default function MatchDayPage() {
                   </span>
                 ))}
               </div>
-              {warnings.map((w) => (
-                <p key={w} className="text-amber-700 font-semibold mb-1">
-                  ⚠ {w}
-                </p>
-              ))}
+              {startHints.length > 0 && totalAssigned > 0 && (
+                <div className="rounded-xl bg-amber-50 border border-amber-400 p-3 mb-2">
+                  <p className="font-semibold text-amber-800 mb-1">
+                    Hinweis: Die Teams sind nicht gleich groß.
+                  </p>
+                  {startHints.map((h) => (
+                    <p key={h} className="text-amber-800">
+                      {h}
+                    </p>
+                  ))}
+                  <p className="text-sm text-amber-800 mt-1">
+                    Das ist kein Fehler. Prüfe nur, ob wirklich alle richtig
+                    zugeordnet sind.
+                  </p>
+                </div>
+              )}
               {totalAssigned === 0 && (
                 <p className="text-amber-700 font-semibold mb-1">
                   ⚠ Noch kein Spieler ist einem Team zugeordnet.
