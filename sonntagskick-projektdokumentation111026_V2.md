@@ -1,6 +1,6 @@
 # ⚽ Sonntagskick – Projektdokumentation
 
-**Stand:** 14.10.2026 · **Version des Dokuments:** 6
+**Stand:** 15.10.2026 · **Version des Dokuments:** 7
 **Zweck:** Single Source of Truth. Dieses Dokument in jeden neuen Chat (Claude, Copilot, ChatGPT) hochladen, dann muss nichts neu erklärt werden. Nach jedem abgeschlossenen Schritt wird es aktualisiert (siehe Änderungsprotokoll am Ende).
 **Hinweis zum Dateinamen:** Die Datei heißt im Repo weiterhin `sonntagskick-projektdokumentation111026_V2.md` (nicht umbenennen, damit die Verbindung zum Claude-Projekt stabil bleibt). Die echte Version steht oben im Dokument.
 
@@ -10,7 +10,7 @@
 
 Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werden **live am Platz mit dem Handy** erfasst, daraus entstehen Spieltags-, Saison- und All-Time-Auswertungen.
 
-**Mobile-First ist Pflicht:** große Buttons, große Touch-Flächen, wenige Eingaben pro Bildschirm, keine breiten Tabellen.
+**Mobile-First ist Pflicht:** große Buttons, große Touch-Flächen, wenige Eingaben pro Bildschirm, keine breiten Tabellen (die Live-Tabelle ist bewusst kompakt, 9 schmale Spalten).
 
 ---
 
@@ -28,17 +28,18 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 - **Der Typ gilt pro Saison** und kann zwischen Saisons wechseln. Er gehört deshalb nicht in `players`, sondern in eine Zuordnung Spieler ↔ Saison (`season_players`).
 
 ### 2.3 Teams
-- **Standard: 3 Teams** (ca. 95 % der Spieltage), meist 4 bis 5 Spieler pro Team.
+- **Standard: 3 Teams** (ca. 95 % der Spieltage), normalerweise **4 Spieler pro Team** (Hinweis vor dem Start, wenn es anders ist; Abweichung ist kein Fehler).
 - Ausnahmen müssen möglich sein: **2 Teams** (z. B. 5 gegen 5), **4 Teams** (noch nie vorgekommen), **ein Team mit einem Spieler mehr**, außerdem ein **offener Modus** mit frei wählbarer Teamanzahl (2 bis 8).
 - **Jeder Spieler hat pro Spieltag genau ein Team.** Alle Ergebnisse dieses Teams zählen für ihn. Fällt jemand zwischendurch aus (Verletzung), wird das im Kommentar des Spieltags festgehalten.
 - Teams heißen immer **Team 1, Team 2, Team 3, ...** (nicht A/B).
+- Alle Stammspieler stehen in der Liste; „nicht da“ = kein Team. Nachzügler gibt es nicht, man weiß vorher, in welchem Team jemand spielt.
 
 ### 2.4 Runden und Spiele
 - Ein **Spiel** dauert **7 Minuten**.
 - Eine **Runde** ist erreicht, wenn **jedes Team einmal gegen jedes andere** gespielt hat. Bei 3 Teams: 3 Spiele, jedes Team hat ein Spiel Pause.
-- **Standard: 4 Runden** (= 12 Spiele). Je nach Zeit auch weniger (z. B. 3 Runden).
-- **Reihenfolge bei 3 Teams (bestätigt):** Das erste Spiel der Runde 1 kann von Spieltag zu Spieltag unterschiedlich sein (z. B. 1:2 oder 1:3). Danach wird entschieden, welches Team bleibt (spielt gleich nochmal gegen das dritte Team), danach spielt der Rest. Ab Runde 2 **wiederholt sich dieselbe Reihenfolge** wie in Runde 1 (welches Team links oder rechts steht, ist egal). Beispiel: Runde 1: 1:2, 1:3, 2:3 / Runde 2: 1:2, 1:3, 2:3 usw.
-- Spiele müssen einzeln anlegbar, auslassbar und (nur wenn unbegonnen) entfernbar sein.
+- **Standard: 4 Runden** (= 12 Spiele). Je nach Zeit auch weniger: Der Knopf „🏁 Spieltag beenden“ beendet den Spieltag früher, das Ergebnis zählt bis dahin.
+- **Reihenfolge bei 3 Teams (bestätigt):** Das erste Spiel der Runde 1 kann von Spieltag zu Spieltag unterschiedlich sein (z. B. 1:2 oder 1:3). **Erst nach dem ersten Spiel** wird entschieden, welches Team bleibt (der Spielverlauf entscheidet darüber), das Bleiberteam spielt gleich nochmal gegen das dritte Team, danach spielt der Rest gegen das dritte Team. Ab Runde 2 **wiederholt sich dieselbe Reihenfolge** wie in Runde 1. Beispiel (1:2 zuerst, Team 1 bleibt): Runde 1: 1:2, 1:3, 2:3 / Runde 2: 1:2, 1:3, 2:3 usw.
+- **Ablauf in der App (3 Teams):** erstes Spiel wählen (Bestätigung) → Spiel zählen und beenden → „Welches Team bleibt?“ → Bestätigung → alle restlichen Spiele bis Runde 4 werden angelegt. Danach können Runden und Spiele **nur noch Admins** ändern, hinzufügen oder entfernen; alle anderen zählen nur Tore. Bei 2 oder 4 Teams (und offenem Modus) legt ein Admin die Spiele an.
 
 ### 2.5 Punkte
 - Sieg **3 Punkte**, Unentschieden **1 Punkt**, Niederlage **0 Punkte**.
@@ -57,15 +58,19 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 
 ## 3. Funktionsumfang
 
-### 3.1 Version 1 (Umsetzungsstand 11.10.2026)
+### 3.1 Version 1 (Umsetzungsstand 15.10.2026)
 - ✅ Spieler anlegen (Name, Spitzname optional, Typ in der aktuellen Saison). ⏳ Spieler bearbeiten und aktiv/inaktiv setzen: noch offen.
 - ⏳ Saisons anlegen (auch rückwirkend): noch keine Seite, Saison 2026/2027 liegt in der Datenbank.
-- ✅ Spieltag anlegen (Datum frei wählbar, auch nachträglich; Modus 3/2/4 Teams oder Offen; Kommentar)
-- ✅ Spieler als anwesend markieren und einem Team zuordnen, mit Hinweis ob die Teams ausgeglichen sind
-- ✅ Spiele anlegen (Standard-Runden mit Wiederholung der Reihenfolge, einzelne Spiele frei) und **live Tore zählen** (große **+1**-Taste, kleine **−1**-Taste, „Spiel beenden“ mit Bestätigung, Auffrischen für mehrere Handys)
+- ✅ Spieltag anlegen (Datum frei wählbar, auch nachträglich; Modus 3/2/4 Teams oder Offen; Kommentar), Spieltage vorab per Skript
+- ✅ Spieler als anwesend markieren und einem Team zuordnen; Hinweis vor dem Start bei ungleich großen Teams
+- ✅ **Spieltag starten** (Kontrolldialog) und **beenden** (Kontrolldialog), Bestätigungsfragen bei allen wichtigen Knöpfen
+- ✅ Spiele: Standard-Runden bei 3 Teams in zwei Schritten (siehe 2.4), Admin-Werkzeuge zum Ergänzen/Entfernen; **live Tore zählen** (große **+1**-Taste, kleine **−1**-Taste, „Spiel beenden“ mit Bestätigung, danach zurück zur Übersicht, Button „▶ Nächstes Spiel zählen“, Auffrischen für mehrere Handys)
+- ✅ Spitznamen der Spieler je Team in Spieleübersicht und Live-Spiel
+- ✅ **Live-Tabelle** (Sp, S, U, N, Tore, Diff, Pkt) mit automatischer Aktualisierung
 - ✅ Kommentarfeld am Spieltag. ⏳ Kommentar am einzelnen Spiel: Spalte vorhanden, noch ohne Oberfläche.
 - ✅ Spieltags-Auswertung: Punkte, Tore, Tordifferenz, Krone, Strichl, Warnung bei ungleicher Spielzahl
 - ⏳ Manuelle Entscheidung bei Gleichstand (Tabelle `match_day_awards`, noch ohne Oberfläche)
+- ⏳ Admin: Spieltag bearbeiten/löschen, Team ergänzen, beendete Spiele korrigieren
 - ⏳ Auswertungen Saison/All-Time:
   - Kronen- und Strichl-Rangliste (Spieltag, Saison, All-Time)
   - Anwesenheitsquote
@@ -85,7 +90,7 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 
 ## 4. Rechte (Benutzerrollen)
 
-### 4.1 Konzept (umgesetzt am 14.10.2026)
+### 4.1 Konzept (umgesetzt am 14./15.10.2026)
 
 **Ohne Anmeldung kommt niemand in die App und niemand an die Daten.** Es gibt zwei Arten von Zugängen:
 
@@ -94,26 +99,33 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 | Alles ansehen | ✅ | ✅ |
 | Spieler anlegen | ✅ | ✅ |
 | Spieltag anlegen, Teams zuordnen (**bis zum Start**) | ✅ | ✅ |
+| Spieltag starten, beenden | ✅ | ✅ |
+| Erstes Spiel anlegen, nach dem ersten Spiel „Bleiber“ wählen und die Standard-Runden anlegen (3 Teams) | ✅ | ✅ |
 | Ergebnisse eintragen (Tore +1/−1, Spiel beenden) | ✅ | ✅ |
 | Teamzuordnung **nach dem Start** ändern | ❌ | ✅ |
-| Spieltag wieder öffnen | ❌ | ✅ |
-| Bestehende Daten nachträglich ändern | ❌ | ✅ (Funktionen dafür noch nicht gebaut) |
-| Löschen (inkl. beendete Spiele korrigieren) | ❌ | ✅ (Funktionen dafür noch nicht gebaut) |
+| Spiele/Runden ergänzen, entfernen, einzelne Spiele anlegen | ❌ | ✅ |
+| Spieltag wieder öffnen, Beenden rückgängig machen | ❌ | ✅ |
+| Bestehende Daten nachträglich ändern, Löschen (inkl. beendete Spiele korrigieren) | ❌ | ✅ (Funktionen dafür noch nicht gebaut) |
 
 - **Runde:** ein gemeinsames Konto (`login@sonntagskick.app`, in Supabase unter Authentication → Users angelegt). Die Anmeldeseite fragt nur nach dem **Passwort**; die E-Mail steht fest in `app/login/page.tsx` (`RUNDE_EMAIL`). Das Passwort wird in der Gruppe verteilt und liegt **nie** im Chat oder im Repo.
 - **Admins:** eigene Konten mit E-Mail und Passwort (Anmeldung über „Admin-Anmeldung“ auf der Anmeldeseite). Admin ist, wer **in der Tabelle `admins` eingetragen** ist, ein Konto allein reicht nicht. Aktuell 2 Admins.
 - **Selbstregistrierung ist ausgeschaltet** (Supabase: Authentication → Sign In / Providers → „Allow new users to sign up“ aus). Neue Konten legt nur ein Admin im Supabase-Dashboard an (Häkchen „Auto Confirm User“).
-- **Erweiterung auf Einzelkonten pro Spieler** ist später jederzeit möglich, ohne Datenbank-Umbau (alle Konten sind für die Regeln gleich: „angemeldet oder nicht“). Nachteil des gemeinsamen Zugangs: Die App weiß nicht, wer etwas eingetragen hat.
+- **Erweiterung auf Einzelkonten pro Spieler** ist später jederzeit möglich, ohne Datenbank-Umbau. Nachteil des gemeinsamen Zugangs: Die App weiß nicht, wer etwas eingetragen hat.
 - Passwort vergessen: Admins mit echter E-Mail können es zurücksetzen lassen, bei erfundenen Adressen (z. B. `admin@harry.app`) setzt man es im Supabase-Dashboard neu. Gelangt das Rundenpasswort nach außen: dort einmal ändern.
 
-### 4.2 Ist-Stand (14.10.2026, Skripte v4 und v5)
-- **Rolle `anon` (ohne Anmeldung) hat keinen Zugriff** auf Tabellen und Funktionen, auch nicht mit URL und Publishable Key. Alle Regeln gelten für die Rolle `authenticated`.
+### 4.2 Ist-Stand (15.10.2026, Skripte v4, v5, v6)
+- **Rolle `anon` (ohne Anmeldung) hat keinen Zugriff** auf Tabellen und Funktionen. Alle Regeln gelten für die Rolle `authenticated`.
 - Lesen: alle Tabellen (inkl. `match_day_awards`) für Angemeldete.
-- Anlegen für Angemeldete: players, season_players, match_days, teams, match_day_players, team_players (diese beiden **nur solange der Spieltag nicht gestartet ist**), games (**nur wenn der Spieltag gestartet ist**).
-- Löschen für Angemeldete: match_day_players und team_players (nur vor dem Start), games nur **unbegonnene** (0:0, nicht beendet).
-- **Admins** (Tabelle `admins`, Prüffunktion `is_admin()`): Regel „Admin all …“ für **alle** Tabellen (lesen, anlegen, ändern, löschen). Die Tabelle `admins` selbst ist von außen nicht lesbar.
-- **Es gibt für die Runde keine UPDATE-Policy.** Tore ändern sich nur über die Funktionen `change_goal(p_game_id, p_side 'a'|'b', p_delta +1/-1)` (nie unter 0, nur bei nicht beendeten Spielen) und `finish_game(p_game_id)`; Spieltag starten über `start_match_day(p_match_day_id)`. Alle drei nur für Angemeldete. Damit überschreiben sich mehrere Handys nicht („+1/−1 auf den bestehenden Stand“).
-- Beendete Spiele korrigieren und Gleichstand entscheiden dürfen technisch Admins (Regel steht), die **Oberfläche dafür fehlt noch**.
+- Anlegen für Angemeldete: players, season_players, match_days, teams, match_day_players und team_players (**nur solange der Spieltag nicht gestartet ist**). **Spiele (`games`) legen Angemeldete nicht mehr direkt an oder löschen sie** (seit v6 nur Admins über „Admin all games“); stattdessen Funktionen (siehe unten).
+- **Admins** (Tabelle `admins`, Prüffunktion `is_admin()`): Regel „Admin all …“ für **alle** Tabellen. Die Tabelle `admins` selbst ist von außen nicht lesbar.
+- **Es gibt für die Runde keine UPDATE-Policy.** Änderungen laufen über Funktionen (alle `security definer`, nur für Angemeldete):
+  - `change_goal(p_game_id, p_side 'a'|'b', p_delta +1/-1)` (nie unter 0, nur bei nicht beendeten Spielen) und `finish_game(p_game_id)`;
+  - `start_match_day(p_match_day_id)`;
+  - `create_first_game(p_match_day_id, p_team_a, p_team_b)`: nur gestarteter, nicht beendeter Spieltag mit genau 3 Teams, nur wenn es noch kein Spiel gibt;
+  - `create_remaining_games(p_match_day_id, p_stayer, p_rounds default 4)`: nur wenn genau ein, bereits **beendetes** Spiel existiert; Bleiber muss darin gespielt haben; legt Spiel 2 und 3 der Runde 1 und die Runden 2 bis p_rounds an (Standard 12 Spiele insgesamt);
+  - `end_match_day(p_match_day_id)`: lehnt ab, wenn ein nicht beendetes Spiel Tore hat; löscht nicht beendete Spiele; setzt `finished_at`; liefert Anzahl entfernter und beendeter Spiele.
+- Damit überschreiben sich mehrere Handys nicht („+1/−1 auf den bestehenden Stand“).
+- Beendete Spiele korrigieren und Gleichstand entscheiden dürfen technisch Admins, die **Oberfläche dafür fehlt noch**.
 
 ---
 
@@ -121,12 +133,12 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 
 | Baustein | Zweck | Status |
 |---|---|---|
-| Next.js 16.4 (App Router, TypeScript, Turbopack) | Oberfläche | läuft lokal |
+| Next.js 16.4 (App Router, TypeScript, Turbopack) | Oberfläche | läuft lokal und auf Vercel |
 | React 19 | UI | läuft |
 | Tailwind CSS 4 | Design | läuft |
 | Supabase | Datenbank + Anmeldung (Supabase Auth) | läuft, Policies und Funktionen siehe 4.2 und 6 |
 | Vercel | Veröffentlichung (Hosting der App, siehe 5.3) | läuft seit 14.10.2026 (Region Dublin, passend zu Supabase eu-west-1) |
-| Git + GitHub | Versionen/Backup | Repo `SWCode15/sonntagskick`, Branch `main`, alle Commits online |
+| Git + GitHub | Versionen/Backup | Repo `SWCode15/sonntagskick`, Branch `main` |
 
 Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagskick`. Entwicklungsserver mit `npm run dev` im ersten Terminal laufen lassen, Git-Befehle in einem zweiten Terminal.
 
@@ -138,38 +150,37 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 | `/` | `app/page.tsx` | Dashboard mit Karten (Spieltage, Spieler; Statistiken und Strichl-Tabelle noch Platzhalter) |
 | `/players` | `app/players/page.tsx` | Spielerliste mit Typ der aktuellen Saison (Client-Komponente) |
 | `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ) |
-| `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“ (Client-Komponente) |
+| `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“ |
 | `/matchdays/new` | `app/matchdays/new/page.tsx` | Spieltag anlegen (Datum, Modus, Kommentar) |
-| `/matchdays/[id]` | `app/matchdays/[id]/page.tsx` | Anwesenheit und Teamzuordnung; Knopf „▶ Spieltag starten“ mit Kontrolldialog (Teamgrößen, Warnungen, „Nicht da: …“); danach Zuordnung gesperrt, Admin kann „Spieltag wieder öffnen“; Knöpfe zu Spielen (erst nach Start) und Auswertung |
-| `/matchdays/[id]/games` | `app/matchdays/[id]/games/page.tsx` | Spiele anlegen und auflisten (ohne gestarteten Spieltag nur Hinweis „noch nicht gestartet“) |
-| `/matchdays/[id]/games/[gameId]` | `app/matchdays/[id]/games/[gameId]/page.tsx` | Live-Torezählen |
-| `/matchdays/[id]/results` | `app/matchdays/[id]/results/page.tsx` | Auswertung des Spieltags |
+| `/matchdays/[id]` | `app/matchdays/[id]/page.tsx` | Anwesenheit und Teamzuordnung; „▶ Spieltag starten“ mit Kontrolldialog (Teamgrößen, gelber Hinweis bei Teams ohne 4 Spieler, „Nicht da: …“); „🏁 Spieltag beenden“ mit Kontrolldialog; danach Zuordnung gesperrt; Admin: „Beenden rückgängig machen“, „Spieltag wieder öffnen“; Knöpfe zu Spielen (erst nach Start) und Auswertung |
+| `/matchdays/[id]/games` | `app/matchdays/[id]/games/page.tsx` | Spieleübersicht: Kasten „Teams“ mit Spitznamen, Button „📊 Live-Tabelle“, großer Button „▶ Nächstes Spiel zählen“, Spiele nach Runden. Standard-Ablauf bei 3 Teams (erstes Spiel → Bleiber nach Spiel 1 → Bestätigung); Admin-Werkzeuge (Runde ergänzen, letzte Runde entfernen, einzelnes Spiel, Spiel entfernen) |
+| `/matchdays/[id]/games/[gameId]` | `app/matchdays/[id]/games/[gameId]/page.tsx` | Live-Torezählen mit Spitznamen, Button zur Live-Tabelle; nach „Spiel beenden“ zurück zur Spieleübersicht |
+| `/matchdays/[id]/table` | `app/matchdays/[id]/table/page.tsx` | Live-Tabelle (aktualisiert alle 5 s) |
+| `/matchdays/[id]/results` | `app/matchdays/[id]/results/page.tsx` | Auswertung des Spieltags mit Krone und Strichl |
 
-Weitere Dateien: `app/layout.tsx` (Rahmen, Titel „Sonntagskick“, Sprache de, bindet `NavBar` und `AuthGate` ein), `app/components/NavBar.tsx` („← Zurück“, „🏠 Start“ und „Abmelden“; auf `/` nur „Abmelden“; auf `/login` ausgeblendet; Abmelden mit `scope: "local"`, damit nur dieses Handy abgemeldet wird), `app/components/AuthGate.tsx` (zeigt Seiten nur Angemeldeten, sonst Weiterleitung auf `/login`), `lib/supabase.ts`, `.env.local` (enthält Supabase-URL und Publishable Key, **nie auf GitHub, nie in Chats posten**).
+Weitere Dateien: `app/layout.tsx` (Rahmen, bindet `NavBar` und `AuthGate` ein), `app/components/NavBar.tsx` („← Zurück“, „🏠 Start“, „Abmelden“; Abmelden mit `scope: "local"`), `app/components/AuthGate.tsx` (zeigt Seiten nur Angemeldeten), `lib/supabase.ts`, `.env.local` (enthält Supabase-URL und Publishable Key, **nie auf GitHub, nie in Chats posten**).
 
-**Alle** Seiten laden ihre Daten im Browser (Client-Komponenten, `"use client"`) mit der Anmeldung des Nutzers. Das ist nötig, weil die Datenbank nur Angemeldeten antwortet: Server-Komponenten kennen die Anmeldung nicht und bekämen leere Daten. Neue Seiten deshalb immer als Client-Komponenten bauen.
+**Alle** Seiten laden ihre Daten im Browser (Client-Komponenten, `"use client"`) mit der Anmeldung des Nutzers. Das ist nötig, weil die Datenbank nur Angemeldeten antwortet. Neue Seiten deshalb immer als Client-Komponenten bauen.
 
 ### 5.2 Sicherung (wichtig)
 - **Code:** liegt auf GitHub (`SWCode15/sonntagskick`).
-- **Datenbank-Änderungen** (Spalten, Policies, Funktionen) macht man im Supabase SQL Editor und stehen nicht automatisch im Code. Deshalb liegen sie als Skripte im Repo: `sonntagskick-schema-v2.sql` und `sonntagskick-schema-v3.sql` (Änderungen danach). Neue Datenbank-Änderungen immer in einer Skriptdatei festhalten.
+- **Datenbank-Änderungen** (Spalten, Policies, Funktionen) macht man im Supabase SQL Editor und stehen nicht automatisch im Code. Deshalb liegen sie als Skripte im Repo (siehe 6.2). Neue Datenbank-Änderungen immer in einer Skriptdatei festhalten.
 - **Daten** (Spieler, Spieltage, Ergebnisse) liegen nur in Supabase. Backup-Möglichkeit: im Supabase Table Editor jede Tabelle als CSV exportieren (später prüfen, welche Backups im Supabase-Tarif enthalten sind).
 
 ### 5.3 Vercel: wofür und wofür nicht
 **Warum:** Die App läuft bisher nur auf dem PC (`npm run dev`, Adresse `localhost`). Am Platz brauchen alle Handys einen echten Internet-Link. Vercel liefert ihn.
 
 **Zuständig für:**
-- Die fertige App (den Next.js-Code aus GitHub) bauen und ins Internet stellen. Ergebnis: ein Link wie `sonntagskick-xyz.vercel.app`, der auf jedem Handy funktioniert.
+- Die fertige App (den Next.js-Code aus GitHub) bauen und ins Internet stellen. Ergebnis: ein Link, der auf jedem Handy funktioniert (`sonntagskick.vercel.app`).
 - Automatisch neu veröffentlichen bei jedem `git push` auf `main`. Ein Update ist also: speichern, `git add`, `git commit`, `git push`, nach etwa einer Minute ist die neue Version online.
-- Die Umgebungsvariablen für die Veröffentlichung verwalten (Supabase-URL und Publishable Key, genau wie in `.env.local`). Sie werden im Vercel-Projekt unter Settings → Environment Variables selbst eingetragen, **nie in den Chat und nie auf GitHub**. Namen genau wie in `.env.local` übernehmen.
+- Die Umgebungsvariablen für die Veröffentlichung verwalten (Supabase-URL und Publishable Key, genau wie in `.env.local`). Sie werden im Vercel-Projekt unter Settings → Environment Variables selbst eingetragen, **nie in den Chat und nie auf GitHub**.
 
 **Nicht zuständig für:**
 - **Daten:** liegen weiter in Supabase. Vercel speichert keine Spieler, Spieltage oder Ergebnisse.
-- **Benutzer, Passwörter, Rollen:** kommen später über Supabase Auth plus RLS (Abschnitt 4). Der Passwortschutz von Vercel für die ganze Seite kostet extra (Pro-Tarif) und wird nicht verwendet.
+- **Benutzer, Passwörter, Rollen:** laufen über Supabase Auth plus RLS (Abschnitt 4). Der Passwortschutz von Vercel für die ganze Seite kostet extra (Pro-Tarif) und wird nicht verwendet.
 - **Code und Versionen:** bleiben bei Git/GitHub. Vercel liest nur mit.
 
-**Kosten:** Der Tarif **Hobby ist kostenlos** (keine Zahlungsdaten nötig), gilt aber nur für private, nicht kommerzielle Nutzung. Das passt für die Sonntagsrunde, die enthaltene Menge reicht weit aus. Wird die App je kommerziell genutzt, braucht es einen bezahlten Tarif.
-
-**Einrichtung (geplant):** Konto auf vercel.com mit „Continue with GitHub“ anlegen (Tarif Hobby) → Repo `SWCode15/sonntagskick` importieren → zwei Umgebungsvariablen eintragen → Deploy → Link am Handy testen. Der Link soll nur an die Runde gehen, bis der Admin-Login existiert (siehe Abschnitt 4).
+**Kosten:** Der Tarif **Hobby ist kostenlos** (keine Zahlungsdaten nötig), gilt aber nur für private, nicht kommerzielle Nutzung. Das passt für die Sonntagsrunde. Wird die App je kommerziell genutzt, braucht es einen bezahlten Tarif.
 
 ### 5.4 Git-Befehle (Spickzettel)
 Git ist das Versionsprogramm, GitHub der Online-Speicher dafür. Alle Befehle im **zweiten** Terminal eingeben (im ersten läuft `npm run dev`), im Projektordner `C:\Users\witsc\sonntagskick`.
@@ -193,9 +204,9 @@ git push
 Danach `git status -s` eingeben: Bleibt die Ausgabe leer, ist alles gesichert. Reihenfolge einhalten: erst speichern (Strg+S), dann add, commit, push.
 
 **Typische Stolpersteine:**
-- `git commit` **ohne** `-m "…"` öffnet den Editor Vim. Raus kommt man mit **Esc**, dann `:q!` und Enter (bricht den Commit ab, nichts geht verloren). Danach den Befehl mit `-m "…"` wiederholen.
+- `git commit` **ohne** `-m "…"` öffnet den Editor Vim (ein Texteditor im Terminal, den Git automatisch startet). Raus kommt man mit **Esc**, dann `:q!` und Enter (bricht den Commit ab, nichts geht verloren). Danach den Befehl mit `-m "…"` wiederholen.
 - `git commit -m` ohne Text gibt „switch `m' requires a value“. Der Text fehlt.
-- `git push` meldet „Everything up-to-date“, wenn es nichts zu senden gibt, meist weil der Commit fehlt.
+- `git push` meldet „Everything up-to-date“, wenn es nichts zu senden gibt, meist weil `git add .` oder `git commit` fehlt. `git status -s` zeigt dann `M`/`??`.
 - `git add` ohne Punkt oder Dateiname fügt nichts hinzu.
 - Nicht gespeicherte Dateien (Punkt neben dem Dateinamen im Reiter) werden nicht mitgesichert. Erst Strg+S.
 - Dateien in `.gitignore` (z. B. `.env.local`, im Dateibaum grau) werden bewusst **nie** hochgeladen.
@@ -213,25 +224,25 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | `players` | name (Pflicht), nickname (optional, UNIQUE), active (Pflicht) |
 | `seasons` | season_name (Pflicht, UNIQUE), start_date, end_date, active |
 | `season_players` | season_id, player_id, player_type (`stamm` / `springer` / `gast`), eindeutig pro Saison und Spieler |
-| `match_days` | season_id, play_date, match_format (optional: `3_teams`, `2_teams`, `4_teams`, `open`), notes (optional), **started_at** (leer = nicht gestartet; gesetzt durch `start_match_day`) |
+| `match_days` | season_id, play_date, match_format (optional: `3_teams`, `2_teams`, `4_teams`, `open`), notes (optional), **started_at** (leer = nicht gestartet; gesetzt durch `start_match_day`), **finished_at** (leer = nicht beendet; gesetzt durch `end_match_day`) |
 | `match_day_players` | match_day_id, player_id (Spieler war anwesend) |
 | `teams` | match_day_id, team_number |
 | `team_players` | team_id, player_id |
 | `games` | match_day_id, round_number, game_number (Reihenfolge, eindeutig pro Spieltag), team_a_id, team_b_id, goals_team_a, goals_team_b, finished (Standard false), notes |
 | `admins` | email (Primary Key). Wer hier steht und ein Konto hat, ist Admin. Von außen nicht lesbar |
-| `match_day_awards` | match_day_id, award_type (`crown` / `strichl`), team_id, notes. Enthält **nur manuelle** Entscheidungen. Noch ohne Oberfläche und ohne Policies |
+| `match_day_awards` | match_day_id, award_type (`crown` / `strichl`), team_id, notes. Enthält **nur manuelle** Entscheidungen. Noch ohne Oberfläche |
 
 **Schutzregeln in der Datenbank:** Fremdschlüssel überall (Löschen eines Spieltags löscht Teams, Zuordnungen und Spiele mit; Spieler und Saisons mit Daten lassen sich nicht löschen), Tore ≥ 0, Team A ≠ Team B, Runde ≥ 1, Saison-Ende ≥ Saison-Start, Spieler nur einmal pro Spieltag, Teamnummer nur einmal pro Spieltag, Spieler nur einmal pro Team, Spielnummer nur einmal pro Spieltag. Zur `match_format`-Spalte: sie hält nur die Auswahl beim Anlegen fest, die echten Daten stehen in `teams` und `games`.
 
-**Daten-Stand 14.10.2026:** 2 Spieler (Witschy, Harry, beide Stammspieler), 1 Saison `2026/2027` (03.10.2026 bis 28.02.2027), Spieltage der Saison vorab angelegt (je 3 Teams, per Skript, einige Termine bewusst ausgelassen). Der Spieltag 25.10.2026 wurde zum Test gestartet und muss vor dem echten Einsatz wieder geöffnet werden (als Admin „Spieltag wieder öffnen“); der Test-Spieltag vom 11.10. samt Testspielen wird von Hand in Supabase gelöscht (Kinddaten zuerst).
+**Daten-Stand 15.10.2026:** 2 Spieler (Witschy, Harry, beide Stammspieler), 1 Saison `2026/2027` (03.10.2026 bis 28.02.2027), Spieltage der Saison vorab angelegt (je 3 Teams, per Skript, einige Termine bewusst ausgelassen). Testdaten: Spieltag 11.10., Spieltag 25.10. (gestartet, vor dem echten Einsatz als Admin wieder öffnen) und Testspiele am 08.11.; vor dem echten Einsatz aufräumen.
 
 ### 6.2 Historie der Skripte
 - `sonntagskick-schema-v2.sql` (ausgeführt 11.10.2026): Fremdschlüssel, Unique- und Check-Regeln, `season_players`, `match_day_awards`, `games.finished`/`notes`, `start_Date` → `start_date`.
 - `sonntagskick-schema-v3.sql` (ausgeführt 11.10.2026): `players.palyer_type` gelöscht, `games.game_number`, alle Policies aus 4.2, Funktionen `change_goal` und `finish_game`.
-
-- `sonntagskick-spieltage-vorab.sql` (ausgeführt 14.10.2026, **mehrfach ausführbar**): legt Spieltage mit je 3 Teams für eine selbst gepflegte Terminliste an; vorhandene Daten werden übersprungen. Termine in der Liste im Skript ändern.
+- `sonntagskick-spieltage-vorab.sql` (ausgeführt 14.10.2026, **mehrfach ausführbar**): legt Spieltage mit je 3 Teams für eine selbst gepflegte Terminliste an; vorhandene Daten werden übersprungen.
 - `sonntagskick-schema-v4-auth.sql` (ausgeführt 14.10.2026): Tabelle `admins`, Funktion `is_admin()`, alle offenen „Public“-Regeln ersetzt durch Regeln für `authenticated` plus „Admin all …“, Funktionen nur noch für Angemeldete. **Nicht erneut ausführen.**
-- `sonntagskick-schema-v5-start.sql` (ausgeführt 14.10.2026): `match_days.started_at`, Funktion `start_match_day`, Sperre von Anwesenheit/Teamzuordnung nach dem Start, Spiele nur bei gestartetem Spieltag. **Nicht erneut ausführen.**
+- `sonntagskick-schema-v5-start.sql` (ausgeführt 14.10.2026): `match_days.started_at`, Funktion `start_match_day`, Sperre von Anwesenheit/Teamzuordnung nach dem Start. **Nicht erneut ausführen.**
+- `sonntagskick-schema-v6-runden-ende.sql` (ausgeführt 15.10.2026, **mehrfach ausführbar**): `match_days.finished_at`, Regeln „Auth insert games“ und „Auth delete unplayed games“ entfernt (Spiele direkt anlegen/löschen nur Admins), Funktionen `create_first_game`, `create_remaining_games`, `end_match_day`. Die frühere Funktion `create_standard_games` (Bleiber vor dem ersten Spiel) wurde verworfen.
 
 ### 6.3 Bekannte Lücken im Modell (bewusst offen)
 - „Jeder Spieler hat pro Spieltag genau ein Team“ lässt sich mit den vorhandenen Tabellen nicht rein per Unique-Regel erzwingen (`team_players` kennt den Spieltag nicht). Die App löst es, indem sie beim Zuordnen zuerst das alte Team entfernt. Absicherung per Trigger später.
@@ -245,16 +256,16 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 ---
 
 ## 7. Arbeitsregeln für die Zusammenarbeit
-- **Komplette Dateien** mit Dateinamen, keine Schnipsel („füge irgendwo ein“).
-- **Kleine Schritte:** ein Schritt → testen → Git-Commit → nächster Schritt.
+- **Komplette Dateien** mit Dateinamen und Zielpfad, keine Schnipsel („füge irgendwo ein“).
+- **Kleine Schritte:** ein Schritt → testen → Git-Commit → nächster Schritt. Nicht mehrere Dinge parallel.
 - Screenshots vom Editor oder Fehlermeldungen im Zweifel mitschicken. Ergebnisse aus Supabase am besten als CSV-Text einfügen.
 - Keine Zugangsdaten (Keys, Passwörter) in Chats.
 - Der Nutzer ist Einsteiger: Schritte kleinteilig erklären, Fehlermeldungen gemeinsam durchgehen.
-- Nach jedem funktionierenden Schritt sichern: speichern, `git add`, `git commit -m`, `git push`.
+- Nach jedem funktionierenden Schritt sichern: speichern, `git add .`, `git commit -m`, `git push`, `git status -s`.
 
 ## 8. Lessons Learned
 - Copilot hat teilweise Code verfälscht dargestellt (JSX-Teile wurden als Links/Text angezeigt, z. B. Fehler „Invalid regular expression flag“; beim Dashboard fehlte das öffnende `<Link>`). Deshalb: komplette Dateien, im Zweifel Screenshot des Editors.
-- Next.js 16 hatte ein Cache-Problem beim Laden der Daten (eingegrenzt). Seiten mit Live-Daten daher mit `export const dynamic = "force-dynamic"` oder als Client-Komponente.
+- Next.js 16 hatte ein Cache-Problem beim Laden der Daten (eingegrenzt). Seiten mit Live-Daten daher als Client-Komponente.
 - Supabase-Zugriff funktioniert erst mit passenden RLS-Policies. Ohne Policy ist eine Tabelle mit aktivem RLS komplett gesperrt. Löschen und Ändern ist ohne eigene Policy ebenfalls gesperrt.
 - Git früh nutzen: ein guter Commit ist ein Rückfallpunkt.
 - PowerShell blockierte anfangs Skripte, gelöst mit `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
@@ -262,39 +273,37 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 - Spaltennamen mit Großbuchstaben (`start_Date`) erzwingen Anführungszeichen in SQL. Immer klein schreiben.
 - Neue Check-Regeln entdecken Fehler in Altdaten. Das Skript läuft als Transaktion, bei einem Fehler wird nichts übernommen.
 - Ein doppelt ausgeführter `insert` wird durch Unique-Regeln mit Fehler 23505 abgewiesen. Das ist kein Schaden, sondern der Schutz vor Doppeleinträgen.
-- **Terminals:** `npm run dev` läuft im ersten Terminal und bleibt dort. Git-Befehle in einem zweiten Terminal (+ im Terminal-Fenster). Wer im selben Terminal weitertippt, beendet den Server und die Seite ist nicht mehr erreichbar.
-- **404 bei neuen Seiten:** Die Datei muss genau `page.tsx` heißen (einmal `pag.tsx`), im richtigen Ordner liegen und gespeichert sein. Bei neuen Ordnern mit eckigen Klammern den Server neu starten (`Strg + C`, `npm run dev`). Hilft das nicht, den Ordner `.next` löschen (`Remove-Item -Recurse -Force .next`).
+- **Terminals:** `npm run dev` läuft im ersten Terminal und bleibt dort. Git-Befehle in einem zweiten Terminal. Wer im selben Terminal weitertippt, beendet den Server.
+- **404 bei neuen Seiten:** Die Datei muss genau `page.tsx` heißen, im richtigen Ordner liegen und gespeichert sein. Bei neuen Ordnern mit eckigen Klammern den Server neu starten (`Strg + C`, `npm run dev`). Hilft das nicht, den Ordner `.next` löschen (`Remove-Item -Recurse -Force .next`).
 - **„Element type is invalid“:** Meist ist eine neu angelegte Komponentendatei leer oder nicht gespeichert (kein `export default`).
 - Tore nie als „Stand ersetzen“ speichern, sondern per Datenbankfunktion „+1/−1 auf den bestehenden Stand“.
-
-- Vercel: Function Region auf **Dublin (dub1)** stellen, passend zu Supabase `eu-west-1` (Irland). Standard (USA) macht die App langsam. Nach der Änderung **Redeploy** nötig.
-- Beim Hochladen auf Vercel fiel auf, dass `app/matchdays/page.tsx` den Code der Einzel-Spieltag-Seite enthielt (Erkennung: Seite `/matchdays` zeigt „Spieltag nicht gefunden“, Datei beginnt mit `"use client"`). Behoben mit Commit `d7fd5a4`. Beim Einfügen von Dateien immer Zielpfad und erste Zeile prüfen.
-
-- **Vercel-Adressen:** Es gibt mehrere. `sonntagskick.vercel.app` (Production) zeigt immer die neueste Version und ist die Adresse für die Runde. Adressen mit Code in der Mitte (z. B. `…-41jdk9a51-…`) zeigen genau **eine alte** Veröffentlichung. Der Knopf „Visit“ im Deployment führt zu so einer Einzel-Adresse.
+- Vercel: Function Region auf **Dublin (dub1)** stellen, passend zu Supabase `eu-west-1` (Irland). Nach der Änderung **Redeploy** nötig.
+- `app/matchdays/page.tsx` enthielt einmal den Code der Einzel-Spieltag-Seite (Erkennung: `/matchdays` zeigt „Spieltag nicht gefunden“). Beim Einfügen von Dateien immer Zielpfad und erste Zeile prüfen.
+- **Vercel-Adressen:** `sonntagskick.vercel.app` (Production) zeigt immer die neueste Version. Adressen mit Code in der Mitte zeigen genau **eine alte** Veröffentlichung. Der Knopf „Visit“ führt zu so einer Einzel-Adresse.
 - **Server- vs. Client-Seiten:** Sobald die Datenbank nur Angemeldeten antwortet, müssen alle Seiten im Browser laden (siehe 5.1).
 - **Abmelden:** `signOut()` ohne `scope: "local"` würde bei einem gemeinsamen Konto alle Handys abmelden.
-- **Konto-E-Mail:** Die E-Mail des Rundenkontos muss exakt zu `RUNDE_EMAIL` in `app/login/page.tsx` passen (anderslautende Eingabe in Supabase → Konstante in der Datei anpassen).
-- **SQL-Editor-Warnungen:** „Destructive operations“ erscheint bei `drop policy` (harmlos, Daten bleiben). „Table without RLS“ → „Run and enable RLS“. Vorher den Editor leeren (Strg+A, Entf), sonst läuft alter Text mit.
-- **Reihenfolge bei Rechte-Umbauten:** erst die App (Anmeldung, Client-Seiten) veröffentlichen und testen, dann die Datenbank-Regeln umstellen, sonst sperrt man sich aus.
-- **Git:** `git commit` ohne `-m "…"` öffnet Vim (Esc, `:q!`, Enter). Siehe 5.4.
+- **Konto-E-Mail:** Die E-Mail des Rundenkontos muss exakt zu `RUNDE_EMAIL` in `app/login/page.tsx` passen.
+- **SQL-Editor-Warnungen:** „Destructive operations“ erscheint bei `drop policy` (harmlos). „Table without RLS“ → „Run and enable RLS“. Vorher den Editor leeren (Strg+A, Entf), sonst läuft alter Text mit.
+- **Reihenfolge bei Rechte-Umbauten:** erst die App veröffentlichen und testen, dann die Datenbank-Regeln umstellen, sonst sperrt man sich aus.
+- **Git:** `git commit` ohne `-m "…"` öffnet Vim (Esc, `:q!`, Enter). Fehlt `git add .`, meldet `git push` „Everything up-to-date“. Siehe 5.4.
+- **Fachlich:** Welches Team nach dem ersten Spiel bleibt, entscheidet der Spielverlauf. Die App darf es deshalb erst **nach** dem ersten Spiel abfragen, nicht vor dem Anlegen der Runden. Fachliche Abläufe vor dem Bauen mit dem Nutzer durchspielen.
+- **Nicht ungefragt eigene Knöpfe erfinden** (z. B. „Alle Runden anlegen“), sondern nur das bauen, was besprochen ist.
 
 ---
 
 ## 9. Offene Punkte / nächste Schritte
 
 ### 9.1 Merkliste für die nächste Sitzung (vom Nutzer gewünscht, unbedingt aufgreifen)
-1. **Standard 4 Runden:** Beim Spieltag mit 3 Teams sollen standardmäßig **4 Runden** hinterlegt sein, nicht nur eine. Beobachtung am 14.10.2026: Beim Test am 25.10. war nur 1 Runde angelegt, und sie ließ sich noch ändern. Zu klären/bauen: Nach „▶ Spieltag starten“ (oder beim Anlegen der Spiele) automatisch 4 Runden nach der Rundenregel erzeugen (Reihenfolge bleibt nach der ersten Runde fix, siehe 2.4), Änderung nur für Admins bzw. nur an unbegonnenen Spielen.
-2. **Knopf „Spieltag beenden“:** Wenn nach z. B. 3 Runden Schluss ist, soll der Spieltag beendet werden können, damit **das Ergebnis bis dahin zählt**. Zu klären/bauen: Feld `finished_at` am Spieltag, Funktion zum Beenden (Bestätigung mit Hinweis auf offene Spiele), nicht gespielte Spiele nicht werten (ausblenden oder entfernen), Auswertung zeigt „Endstand“ statt „Zwischenstand“, danach Zähl- und Zuordnungssperre. Wiederöffnen nur Admin.
-3. **Erinnerung (auf Wunsch des Nutzers):** Spieltag mit **mehr als 3 Teams** nachträglich: Team ergänzen können (Admin-Funktion „Spieltag bearbeiten“). Bis dahin Notlösung: Team in Supabase von Hand eintragen oder Spieltag mit 4 Teams neu anlegen, solange nichts eingetragen ist.
+1. **Erinnerung (auf Wunsch des Nutzers): Team 4 / „Spieltag bearbeiten“.** Admin: Datum, Modus, Kommentar ändern, Team ergänzen, Spieltag löschen. Modus-Wechsel auf 2 oder 4 Teams; bei 2 Teams Runden erweiterbar (Admin). Niedrige Priorität, 95 % der Spieltage sind 3 Teams und 4 Runden. Bis dahin Notlösung: Team in Supabase von Hand eintragen oder Spieltag mit 4 Teams neu anlegen, solange nichts eingetragen ist.
 
 ### 9.2 Weitere offene Punkte
-1. **Admin-Funktionen in der App:** Spieltag bearbeiten (Datum, Modus, Kommentar, Team ergänzen) und löschen, beendete Spiele korrigieren. Die Datenbank erlaubt es Admins bereits, die Oberfläche fehlt.
+1. **Admin-Funktionen in der App:** beendete Spiele korrigieren, Spieltag bearbeiten/löschen. Die Datenbank erlaubt es Admins bereits, die Oberfläche fehlt.
 2. **Manuelle Entscheidung bei Gleichstand** (Krone/Strichl): Oberfläche auf der Auswertungsseite, Eintrag in `match_day_awards` (nur Admins; Regel steht).
 3. **Warnung beim Wiederöffnen** eines Spieltags mit bereits beendeten Spielen („Änderungen an den Teams ändern die Ergebnisse“).
 4. **„nicht da“-Knopf** klarer gestalten („nicht da ✓“, erst nach dem Tippen farbig), da der graue Knopf wie deaktiviert wirkt.
-5. **Auswertungen Saison/All-Time** (Kronen, Strichl, Anwesenheit, Duos, Angstgegner, Tore im Team), Filter nach Spielertyp. Dashboard-Karten Statistiken und Strichl-Tabelle verlinken.
-6. Kleinere Verbesserungen: Spieler bearbeiten und inaktiv setzen, Saison anlegen, Typ pro Saison ändern, Spielertyp in der Zuordnungsliste anzeigen, Kommentar pro Spiel, 7-Minuten-Stoppuhr.
-7. **Vor dem echten Einsatz:** Test-Spieltag 11.10. samt Testdaten löschen, Spieltag 25.10. wieder öffnen (Admin), Handytest über Mobilfunk, Passwort der Runde verteilen, Link `sonntagskick.vercel.app` weitergeben, Handy-Startbildschirm-Verknüpfung.
+5. **Auswertungen Saison/All-Time** (Kronen, Strichl, Anwesenheit, Duos, Angstgegner, Tore im Team), Filter nach Spielertyp. Dashboard-Karten Statistiken und Strichl-Tabelle verlinken. Auswertungsseite: Beschriftung „Endstand“ bei beendetem Spieltag.
+6. Kleinere Verbesserungen: Spieler bearbeiten und inaktiv setzen, Saison anlegen, Typ pro Saison ändern, Kommentar pro Spiel, 7-Minuten-Stoppuhr.
+7. **Vor dem echten Einsatz:** Spieltag 25.10. wieder öffnen (Admin), Testdaten (11.10., Testspiele) löschen, Handytest über Mobilfunk, Passwort der Runde verteilen, Link `sonntagskick.vercel.app` weitergeben, Handy-Startbildschirm-Verknüpfung.
 8. Backups der Daten klären (siehe 5.2).
 9. Optional: Einzelkonten pro Spieler statt gemeinsamem Zugang (siehe 4.1). Im Claude-Projekt ist das GitHub-Repo mehrfach als Quelle eingetragen (harmlos, kann entfernt werden).
 
@@ -307,6 +316,6 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 11.10.2026 | Version 2: Datenbank-Ist-Stand ausgelesen (Spalten, RLS, Policies, Constraints), Befunde und Soll-Stand ergänzt, Schema-Skript erstellt, Datenmodell-Entwurf durch echte Struktur ersetzt |
 | 11.10.2026 | Version 3: Schema-Skript ausgeführt (Fremdschlüssel, Unique- und Check-Regeln, `season_players`, `match_day_awards`, `games.finished`/`notes`). Enddatum der Saison 2026/2027 korrigiert, Spielertypen nach `season_players` übernommen |
 | 11.10.2026 | Version 4: App gebaut und getestet: Spielerverwaltung mit Typ pro Saison, Spieltag anlegen (Modi 3/2/4/Offen), Anwesenheit und Teamzuordnung, Spiele anlegen (Rundenlogik), Live-Torezählen per Datenbankfunktion, Dashboard und Navigationsleiste, Spieltags-Auswertung mit Krone, Strichl und Warnung bei ungleicher Spielzahl. `palyer_type` gelöscht, `games.game_number` ergänzt, Policies und Funktionen (`sonntagskick-schema-v3.sql`). Rechte-Ist-Stand und Seitenübersicht ergänzt |
-| 14.10.2026 | Version 5: Abschnitt 5.3 ergänzt (wofür Vercel gebraucht wird, was es übernimmt und was nicht, Kosten, geplante Einrichtung) |
-| 14.10.2026 | Version 5 (ergänzt): Abschnitt 5.4 Git-Spickzettel (add, commit, push, status, restore u. a., typische Stolpersteine), Vercel eingerichtet und veröffentlicht (Region Dublin), Lessons Learned zu Vercel-Region und falscher Seitendatei |
-| 14.10.2026 (abends) | Version 6: Anmeldung eingeführt (Login-Seite, AuthGate, Rundenkonto + Admins, Tabelle `admins`, alle Regeln auf `authenticated`, Selbstregistrierung aus), alle Seiten als Client-Komponenten, Spieltage-Liste mit „Nächster Spieltag“, Spieltag starten mit Sperre der Zuordnung (`started_at`, Skripte v4 und v5), Skript für vorab angelegte Spieltage. Abschnitte 4, 5.1, 6, 8 und 9 überarbeitet, Merkliste für die nächste Sitzung (4 Runden Standard, Spieltag beenden, Team-4-Erinnerung) |
+| 14.10.2026 | Version 5: Abschnitt 5.3 ergänzt (wofür Vercel gebraucht wird, was es übernimmt und was nicht, Kosten), Abschnitt 5.4 Git-Spickzettel, Vercel eingerichtet und veröffentlicht (Region Dublin), Lessons Learned |
+| 14.10.2026 (abends) | Version 6: Anmeldung eingeführt (Login-Seite, AuthGate, Rundenkonto + Admins, Tabelle `admins`, alle Regeln auf `authenticated`, Selbstregistrierung aus), alle Seiten als Client-Komponenten, Spieltage-Liste mit „Nächster Spieltag“, Spieltag starten mit Sperre der Zuordnung (`started_at`, Skripte v4 und v5), Skript für vorab angelegte Spieltage |
+| 15.10.2026 | Version 7: Skript v6 (`finished_at`, Funktionen `create_first_game`, `create_remaining_games`, `end_match_day`, Spiele nur noch über Funktionen/Admin). Standard 4 Runden bei 3 Teams in zwei Schritten (Bleiber erst nach dem ersten Spiel), „Spieltag beenden“, Bestätigungsfragen, Hinweis bei Teams ohne 4 Spieler, Nach-Spielende-zurück zur Übersicht, „Nächstes Spiel zählen“, Spitznamen bei den Teams, Live-Tabelle. Abschnitte 2.3, 2.4, 3.1, 4, 5.1, 6 und 8 überarbeitet, Merkliste auf Team-4-Erinnerung gekürzt |
