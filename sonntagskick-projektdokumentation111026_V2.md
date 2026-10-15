@@ -1,6 +1,6 @@
 # ⚽ Sonntagskick – Projektdokumentation
 
-**Stand:** 15.10.2026 · **Version des Dokuments:** 7
+**Stand:** 15.10.2026 · **Version des Dokuments:** 8
 **Zweck:** Single Source of Truth. Dieses Dokument in jeden neuen Chat (Claude, Copilot, ChatGPT) hochladen, dann muss nichts neu erklärt werden. Nach jedem abgeschlossenen Schritt wird es aktualisiert (siehe Änderungsprotokoll am Ende).
 **Hinweis zum Dateinamen:** Die Datei heißt im Repo weiterhin `sonntagskick-projektdokumentation111026_V2.md` (nicht umbenennen, damit die Verbindung zum Claude-Projekt stabil bleibt). Die echte Version steht oben im Dokument.
 
@@ -69,7 +69,7 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 - ✅ **Live-Tabelle** (Sp, S, U, N, Tore, Diff, Pkt) mit automatischer Aktualisierung
 - ✅ Kommentarfeld am Spieltag. ⏳ Kommentar am einzelnen Spiel: Spalte vorhanden, noch ohne Oberfläche.
 - ✅ Spieltags-Auswertung: Punkte, Tore, Tordifferenz, Krone, Strichl, Warnung bei ungleicher Spielzahl
-- ⏳ Manuelle Entscheidung bei Gleichstand (Tabelle `match_day_awards`, noch ohne Oberfläche)
+- ✅ Manuelle Entscheidung bei Gleichstand (Tabelle `match_day_awards`): nach „Spieltag beenden“ auf der Auswertungsseite, alle dürfen eintragen, Admins ändern; auffälliger Hinweis
 - ⏳ Admin: Spieltag bearbeiten/löschen, Team ergänzen, beendete Spiele korrigieren
 - ⏳ Auswertungen Saison/All-Time:
   - Kronen- und Strichl-Rangliste (Spieltag, Saison, All-Time)
@@ -102,6 +102,8 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 | Spieltag starten, beenden | ✅ | ✅ |
 | Erstes Spiel anlegen, nach dem ersten Spiel „Bleiber“ wählen und die Standard-Runden anlegen (3 Teams) | ✅ | ✅ |
 | Ergebnisse eintragen (Tore +1/−1, Spiel beenden) | ✅ | ✅ |
+| Gleichstand bei Krone/Strichl entscheiden (nur bei beendetem Spieltag) | ✅ | ✅ |
+| Gleichstand-Entscheidung ändern/löschen | ❌ | ✅ |
 | Teamzuordnung **nach dem Start** ändern | ❌ | ✅ |
 | Spiele/Runden ergänzen, entfernen, einzelne Spiele anlegen | ❌ | ✅ |
 | Spieltag wieder öffnen, Beenden rückgängig machen | ❌ | ✅ |
@@ -125,7 +127,8 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
   - `create_remaining_games(p_match_day_id, p_stayer, p_rounds default 4)`: nur wenn genau ein, bereits **beendetes** Spiel existiert; Bleiber muss darin gespielt haben; legt Spiel 2 und 3 der Runde 1 und die Runden 2 bis p_rounds an (Standard 12 Spiele insgesamt);
   - `end_match_day(p_match_day_id)`: lehnt ab, wenn ein nicht beendetes Spiel Tore hat; löscht nicht beendete Spiele; setzt `finished_at`; liefert Anzahl entfernter und beendeter Spiele.
 - Damit überschreiben sich mehrere Handys nicht („+1/−1 auf den bestehenden Stand“).
-- Beendete Spiele korrigieren und Gleichstand entscheiden dürfen technisch Admins, die **Oberfläche dafür fehlt noch**.
+- `match_day_awards`: Lesen und Eintragen für Angemeldete (Eintragen **nur bei beendetem Spieltag**, Regel „Auth insert match_day_awards“, v7), Ändern/Löschen nur Admins; eindeutig pro Spieltag, Art und Team. Die Oberfläche steht (Auswertungsseite).
+- Beendete Spiele korrigieren dürfen technisch Admins, die **Oberfläche dafür fehlt noch**.
 
 ---
 
@@ -156,7 +159,7 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 | `/matchdays/[id]/games` | `app/matchdays/[id]/games/page.tsx` | Spieleübersicht: Kasten „Teams“ mit Spitznamen, Button „📊 Live-Tabelle“, großer Button „▶ Nächstes Spiel zählen“, Spiele nach Runden. Standard-Ablauf bei 3 Teams (erstes Spiel → Bleiber nach Spiel 1 → Bestätigung); Admin-Werkzeuge (Runde ergänzen, letzte Runde entfernen, einzelnes Spiel, Spiel entfernen) |
 | `/matchdays/[id]/games/[gameId]` | `app/matchdays/[id]/games/[gameId]/page.tsx` | Live-Torezählen mit Spitznamen, Button zur Live-Tabelle; nach „Spiel beenden“ zurück zur Spieleübersicht |
 | `/matchdays/[id]/table` | `app/matchdays/[id]/table/page.tsx` | Live-Tabelle (aktualisiert alle 5 s) |
-| `/matchdays/[id]/results` | `app/matchdays/[id]/results/page.tsx` | Auswertung des Spieltags mit Krone und Strichl |
+| `/matchdays/[id]/results` | `app/matchdays/[id]/results/page.tsx` | Auswertung des Spieltags mit Krone und Strichl; bei Gleichstand gelber Hinweis und Entscheidung von Hand (nur bei beendetem Spieltag); Admin kann sie ändern |
 
 Weitere Dateien: `app/layout.tsx` (Rahmen, bindet `NavBar` und `AuthGate` ein), `app/components/NavBar.tsx` („← Zurück“, „🏠 Start“, „Abmelden“; Abmelden mit `scope: "local"`), `app/components/AuthGate.tsx` (zeigt Seiten nur Angemeldeten), `lib/supabase.ts`, `.env.local` (enthält Supabase-URL und Publishable Key, **nie auf GitHub, nie in Chats posten**).
 
@@ -234,7 +237,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 
 **Schutzregeln in der Datenbank:** Fremdschlüssel überall (Löschen eines Spieltags löscht Teams, Zuordnungen und Spiele mit; Spieler und Saisons mit Daten lassen sich nicht löschen), Tore ≥ 0, Team A ≠ Team B, Runde ≥ 1, Saison-Ende ≥ Saison-Start, Spieler nur einmal pro Spieltag, Teamnummer nur einmal pro Spieltag, Spieler nur einmal pro Team, Spielnummer nur einmal pro Spieltag. Zur `match_format`-Spalte: sie hält nur die Auswahl beim Anlegen fest, die echten Daten stehen in `teams` und `games`.
 
-**Daten-Stand 15.10.2026:** 2 Spieler (Witschy, Harry, beide Stammspieler), 1 Saison `2026/2027` (03.10.2026 bis 28.02.2027), Spieltage der Saison vorab angelegt (je 3 Teams, per Skript, einige Termine bewusst ausgelassen). Testdaten: Spieltag 11.10., Spieltag 25.10. (gestartet, vor dem echten Einsatz als Admin wieder öffnen) und Testspiele am 08.11.; vor dem echten Einsatz aufräumen.
+**Daten-Stand 15.10.2026:** 2 Spieler (Witschy, Harry, beide Stammspieler), 1 Saison `2026/2027` (03.10.2026 bis 28.02.2027), Spieltage der Saison vorab angelegt (je 3 Teams, per Skript, einige Termine bewusst ausgelassen). Testdaten wurden am 15.10.2026 abends zurückgesetzt (danach am Testspieltag erneut getestet, vor dem echten Einsatz noch einmal zurücksetzen) (Spiele, Anwesenheit, Zuordnungen gelöscht, `started_at`/`finished_at` geleert). Es gibt 18 Spieltage mit je 3 Teams.
 
 ### 6.2 Historie der Skripte
 - `sonntagskick-schema-v2.sql` (ausgeführt 11.10.2026): Fremdschlüssel, Unique- und Check-Regeln, `season_players`, `match_day_awards`, `games.finished`/`notes`, `start_Date` → `start_date`.
@@ -242,6 +245,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 - `sonntagskick-spieltage-vorab.sql` (ausgeführt 14.10.2026, **mehrfach ausführbar**): legt Spieltage mit je 3 Teams für eine selbst gepflegte Terminliste an; vorhandene Daten werden übersprungen.
 - `sonntagskick-schema-v4-auth.sql` (ausgeführt 14.10.2026): Tabelle `admins`, Funktion `is_admin()`, alle offenen „Public“-Regeln ersetzt durch Regeln für `authenticated` plus „Admin all …“, Funktionen nur noch für Angemeldete. **Nicht erneut ausführen.**
 - `sonntagskick-schema-v5-start.sql` (ausgeführt 14.10.2026): `match_days.started_at`, Funktion `start_match_day`, Sperre von Anwesenheit/Teamzuordnung nach dem Start. **Nicht erneut ausführen.**
+- `sonntagskick-schema-v7-gleichstand.sql` (ausgeführt 15.10.2026, **mehrfach ausführbar**): Regel „Auth insert match_day_awards“ (nur bei beendetem Spieltag), eindeutiger Index auf `match_day_awards`.
 - `sonntagskick-schema-v6-runden-ende.sql` (ausgeführt 15.10.2026, **mehrfach ausführbar**): `match_days.finished_at`, Regeln „Auth insert games“ und „Auth delete unplayed games“ entfernt (Spiele direkt anlegen/löschen nur Admins), Funktionen `create_first_game`, `create_remaining_games`, `end_match_day`. Die frühere Funktion `create_standard_games` (Bleiber vor dem ersten Spiel) wurde verworfen.
 
 ### 6.3 Bekannte Lücken im Modell (bewusst offen)
@@ -298,13 +302,13 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 
 ### 9.2 Weitere offene Punkte
 1. **Admin-Funktionen in der App:** beendete Spiele korrigieren, Spieltag bearbeiten/löschen. Die Datenbank erlaubt es Admins bereits, die Oberfläche fehlt.
-2. **Manuelle Entscheidung bei Gleichstand** (Krone/Strichl): Oberfläche auf der Auswertungsseite, Eintrag in `match_day_awards` (nur Admins; Regel steht).
+2. ~~Manuelle Entscheidung bei Gleichstand~~: erledigt am 15.10.2026. Offen: Auswertungen (Statistik) müssen später Entscheidungen aus `match_day_awards` vor der berechneten Wertung berücksichtigen.
 3. **Warnung beim Wiederöffnen** eines Spieltags mit bereits beendeten Spielen („Änderungen an den Teams ändern die Ergebnisse“).
-4. **„nicht da“-Knopf** klarer gestalten („nicht da ✓“, erst nach dem Tippen farbig), da der graue Knopf wie deaktiviert wirkt.
+4. ~~„nicht da“-Knopf~~: erledigt am 15.10.2026 (wie die Team-Knöpfe, ausgewählt orange).
 5. **Auswertungen Saison/All-Time** (Kronen, Strichl, Anwesenheit, Duos, Angstgegner, Tore im Team), Filter nach Spielertyp. Dashboard-Karten Statistiken und Strichl-Tabelle verlinken. Auswertungsseite: Beschriftung „Endstand“ bei beendetem Spieltag.
 6. Kleinere Verbesserungen: Spieler bearbeiten und inaktiv setzen, Saison anlegen, Typ pro Saison ändern, Kommentar pro Spiel, 7-Minuten-Stoppuhr.
-7. **Vor dem echten Einsatz:** Spieltag 25.10. wieder öffnen (Admin), Testdaten (11.10., Testspiele) löschen, Handytest über Mobilfunk, Passwort der Runde verteilen, Link `sonntagskick.vercel.app` weitergeben, Handy-Startbildschirm-Verknüpfung.
-8. Backups der Daten klären (siehe 5.2).
+7. **Vor dem echten Einsatz:** Handytest über Mobilfunk, Passwort der Runde verteilen, Link `sonntagskick.vercel.app` weitergeben, Handy-Startbildschirm-Verknüpfung. (Testdaten sind am 15.10.2026 bereits zurückgesetzt.)
+8. **Backups/Historie (Wunsch des Nutzers, 15.10.2026):** (A) vor dem ersten echten Spieltag CSV-Export aller Tabellen testen, danach nach jedem Spieltag (kleiner Aufwand). (B) Seite „Spielbericht“ pro Spieltag mit PDF per Drucken, evtl. Export-Knopf (mittlerer Aufwand, ein Arbeitsschritt). (C) später automatisches Backup per GitHub-Zeitplan in ein privates Archiv; das DB-Passwort liegt nur als GitHub-Secret (größerer Aufwand). (D) bezahlter Supabase-Tarif mit täglichen Backups, aktuell nicht nötig. Im Free-Tarif unter Database → Backups prüfen, was enthalten ist; inaktive Projekte werden pausiert.
 9. Optional: Einzelkonten pro Spieler statt gemeinsamem Zugang (siehe 4.1). Im Claude-Projekt ist das GitHub-Repo mehrfach als Quelle eingetragen (harmlos, kann entfernt werden).
 
 ---
@@ -319,3 +323,4 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 14.10.2026 | Version 5: Abschnitt 5.3 ergänzt (wofür Vercel gebraucht wird, was es übernimmt und was nicht, Kosten), Abschnitt 5.4 Git-Spickzettel, Vercel eingerichtet und veröffentlicht (Region Dublin), Lessons Learned |
 | 14.10.2026 (abends) | Version 6: Anmeldung eingeführt (Login-Seite, AuthGate, Rundenkonto + Admins, Tabelle `admins`, alle Regeln auf `authenticated`, Selbstregistrierung aus), alle Seiten als Client-Komponenten, Spieltage-Liste mit „Nächster Spieltag“, Spieltag starten mit Sperre der Zuordnung (`started_at`, Skripte v4 und v5), Skript für vorab angelegte Spieltage |
 | 15.10.2026 | Version 7: Skript v6 (`finished_at`, Funktionen `create_first_game`, `create_remaining_games`, `end_match_day`, Spiele nur noch über Funktionen/Admin). Standard 4 Runden bei 3 Teams in zwei Schritten (Bleiber erst nach dem ersten Spiel), „Spieltag beenden“, Bestätigungsfragen, Hinweis bei Teams ohne 4 Spieler, Nach-Spielende-zurück zur Übersicht, „Nächstes Spiel zählen“, Spitznamen bei den Teams, Live-Tabelle. Abschnitte 2.3, 2.4, 3.1, 4, 5.1, 6 und 8 überarbeitet, Merkliste auf Team-4-Erinnerung gekürzt |
+| 15.10.2026 (abends) | Version 8: Skript v7 (Gleichstand-Entscheidung per Datenbank-Regel), Entscheidung von Hand auf der Auswertungsseite (alle dürfen, Admins ändern), auffälliger Hinweis, nach „Spieltag beenden“ direkt zur Auswertung, „nicht da“-Knopf wie die Team-Knöpfe, Testdaten zurückgesetzt, Backup-Ideen (A bis D) in die Merkliste |
