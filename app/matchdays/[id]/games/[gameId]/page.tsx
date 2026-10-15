@@ -256,6 +256,13 @@ export default function LiveGamePage() {
       </div>
 
       <div className="mt-6 space-y-3">
+        <Link
+          href={`/matchdays/${matchDayId}/table`}
+          className="block text-center rounded-xl border-2 border-green-600 bg-white px-4 py-3 text-lg font-semibold text-green-800"
+        >
+          📊 Live-Tabelle
+        </Link>
+
         {!game.finished && !confirmFinish && (
           <button
             type="button"

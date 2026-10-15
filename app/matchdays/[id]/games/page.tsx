@@ -435,6 +435,13 @@ export default function GamesPage() {
         <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
       )}
 
+      <Link
+        href={`/matchdays/${matchDayId}/table`}
+        className="block text-center rounded-xl border-2 border-green-600 bg-white px-4 py-3 text-lg font-semibold text-green-800 mb-6"
+      >
+        📊 Live-Tabelle
+      </Link>
+
       {/* Wer spielt in welchem Team? */}
       {teams.length > 0 && (
         <section className="bg-white rounded-xl p-4 shadow mb-6">
