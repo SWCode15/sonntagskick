@@ -616,10 +616,10 @@ export default function MatchDayPage() {
                   disabled={busy || locked}
                   onClick={() => markAbsent(player.id)}
                   className={
-                    "h-14 px-4 rounded-xl border font-semibold disabled:opacity-50 " +
+                    "h-14 px-4 rounded-xl border text-xl font-bold disabled:opacity-50 " +
                     (!present
                       ? "bg-orange-500 border-orange-500 text-white"
-                      : "bg-white border-orange-400 text-orange-700")
+                      : "bg-white border-gray-300 text-gray-800")
                   }
                 >
                   {!present ? "✕ nicht da" : "nicht da"}
