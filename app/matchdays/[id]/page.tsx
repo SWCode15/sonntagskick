@@ -618,11 +618,11 @@ export default function MatchDayPage() {
                   className={
                     "h-14 px-4 rounded-xl border font-semibold disabled:opacity-50 " +
                     (!present
-                      ? "bg-gray-200 border-gray-300 text-gray-700"
-                      : "bg-white border-gray-300 text-gray-500")
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : "bg-white border-orange-400 text-orange-700")
                   }
                 >
-                  nicht da
+                  {!present ? "✕ nicht da" : "nicht da"}
                 </button>
               </div>
             </div>
