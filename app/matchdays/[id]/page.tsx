@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type MatchDay = {
@@ -14,6 +14,8 @@ type MatchDay = {
 };
 type GameRow = {
   id: string;
+  team_a_id: string;
+  team_b_id: string;
   finished: boolean;
   goals_team_a: number;
   goals_team_b: number;
@@ -48,6 +50,8 @@ export default function MatchDayPage() {
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [starting, setStarting] = useState(false);
   const [gameRows, setGameRows] = useState<GameRow[]>([]);
+  const [awardTypes, setAwardTypes] = useState<string[]>([]);
+  const router = useRouter();
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [ending, setEnding] = useState(false);
 
@@ -93,12 +97,18 @@ export default function MatchDayPage() {
 
     const { data: gamesData } = await supabase
       .from("games")
-      .select("id, finished, goals_team_a, goals_team_b")
+      .select("id, team_a_id, team_b_id, finished, goals_team_a, goals_team_b")
+      .eq("match_day_id", matchDayId);
+
+    const { data: awardRows } = await supabase
+      .from("match_day_awards")
+      .select("award_type")
       .eq("match_day_id", matchDayId);
 
     const { data: adminFlag } = await supabase.rpc("is_admin");
 
     setGameRows(gamesData ?? []);
+    setAwardTypes((awardRows ?? []).map((a) => a.award_type as string));
     setIsAdmin(adminFlag === true);
     setMatchDay(md);
     setTeams(teamRows ?? []);
@@ -124,6 +134,48 @@ export default function MatchDayPage() {
   const unplayedCount = gameRows.filter(
     (g) => !g.finished && g.goals_team_a === 0 && g.goals_team_b === 0
   ).length;
+
+  // Gleichstand bei Krone/Strichl, der noch von Hand entschieden werden muss?
+  const standings = teams.map((team) => {
+    let points = 0;
+    let diff = 0;
+    gameRows
+      .filter((g) => g.finished)
+      .forEach((g) => {
+        let own: number;
+        let other: number;
+        if (g.team_a_id === team.id) {
+          own = g.goals_team_a;
+          other = g.goals_team_b;
+        } else if (g.team_b_id === team.id) {
+          own = g.goals_team_b;
+          other = g.goals_team_a;
+        } else {
+          return;
+        }
+        diff += own - other;
+        points += own > other ? 3 : own === other ? 1 : 0;
+      });
+    return { points, diff };
+  });
+  const sortedStandings = [...standings].sort(
+    (a, b) => b.points - a.points || b.diff - a.diff
+  );
+  const topS = sortedStandings[0];
+  const bottomS = sortedStandings[sortedStandings.length - 1];
+  const hasFinishedGames = gameRows.some((g) => g.finished);
+  const crownTieOpen =
+    hasFinishedGames &&
+    !awardTypes.includes("crown") &&
+    standings.filter((s) => s.points === topS.points && s.diff === topS.diff)
+      .length > 1;
+  const strichlTieOpen =
+    hasFinishedGames &&
+    !awardTypes.includes("strichl") &&
+    standings.filter(
+      (s) => s.points === bottomS.points && s.diff === bottomS.diff
+    ).length > 1;
+  const decisionNeeded = dayFinished && (crownTieOpen || strichlTieOpen);
 
   const teamOfPlayer = new Map<string, string>();
   teamPlayers.forEach((tp) => teamOfPlayer.set(tp.player_id, tp.team_id));
@@ -227,10 +279,13 @@ export default function MatchDayPage() {
     });
     if (error) {
       setErrorMessage(`Fehler beim Beenden: ${error.message}`);
+      setShowEndDialog(false);
+      await load();
+      setEnding(false);
+      return;
     }
-    setShowEndDialog(false);
-    await load();
-    setEnding(false);
+    // Spieltag beendet: direkt zur Auswertung (dort ggf. Gleichstand entscheiden)
+    router.push(`/matchdays/${matchDayId}/results`);
   }
 
   async function undoEnd() {
@@ -363,6 +418,21 @@ export default function MatchDayPage() {
               </p>
             )}
           </div>
+
+          {decisionNeeded && (
+            <Link
+              href={`/matchdays/${matchDayId}/results`}
+              className="block rounded-xl border-2 border-amber-500 bg-amber-50 p-4 font-semibold text-amber-900"
+            >
+              ⚠ Entscheidung nötig: Gleichstand bei{" "}
+              {crownTieOpen && strichlTieOpen
+                ? "Krone und Strichl"
+                : crownTieOpen
+                ? "der Krone"
+                : "dem Strichl"}
+              . Hier tippen und in der Auswertung entscheiden →
+            </Link>
+          )}
 
           {/* Spieltag beenden (mit Kontrollfrage) */}
           {!dayFinished && !showEndDialog && (
