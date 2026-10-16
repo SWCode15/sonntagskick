@@ -1,6 +1,6 @@
 # ⚽ Sonntagskick – Projektdokumentation
 
-**Stand:** 15.10.2026 · **Version des Dokuments:** 8
+**Stand:** 16.10.2026 · **Version des Dokuments:** 9
 **Zweck:** Single Source of Truth. Dieses Dokument in jeden neuen Chat (Claude, Copilot, ChatGPT) hochladen, dann muss nichts neu erklärt werden. Nach jedem abgeschlossenen Schritt wird es aktualisiert (siehe Änderungsprotokoll am Ende).
 **Hinweis zum Dateinamen:** Die Datei heißt im Repo weiterhin `sonntagskick-projektdokumentation111026_V2.md` (nicht umbenennen, damit die Verbindung zum Claude-Projekt stabil bleibt). Die echte Version steht oben im Dokument.
 
@@ -90,44 +90,43 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 
 ## 4. Rechte (Benutzerrollen)
 
-### 4.1 Konzept (umgesetzt am 14./15.10.2026)
+### 4.1 Konzept (Anmeldung 14.10.2026, Rollen 16.10.2026)
 
-**Ohne Anmeldung kommt niemand in die App und niemand an die Daten.** Es gibt zwei Arten von Zugängen:
+**Ohne Anmeldung kommt niemand in die App und niemand an die Daten.** Es gibt drei Rollen mit je eigenem Zugang. Die Anmeldeseite hat drei Knöpfe (Leser, Eintragen, Admin); bei Leser und Eintragen steht der Benutzername fest (`leser`, `eintragen`) und man gibt nur das Passwort ein, bei Admin E-Mail und Passwort (so speichern Passwort-Manager jedes Konto getrennt).
 
-| Aktion | Runde (gemeinsamer Zugang) | Admin (eigener Zugang) |
-|---|---|---|
-| Alles ansehen | ✅ | ✅ |
-| Spieler anlegen | ✅ | ✅ |
-| Spieltag anlegen, Teams zuordnen (**bis zum Start**) | ✅ | ✅ |
-| Spieltag starten, beenden | ✅ | ✅ |
-| Erstes Spiel anlegen, nach dem ersten Spiel „Bleiber“ wählen und die Standard-Runden anlegen (3 Teams) | ✅ | ✅ |
-| Ergebnisse eintragen (Tore +1/−1, Spiel beenden) | ✅ | ✅ |
-| Gleichstand bei Krone/Strichl entscheiden (nur bei beendetem Spieltag) | ✅ | ✅ |
-| Gleichstand-Entscheidung ändern/löschen | ❌ | ✅ |
-| Teamzuordnung **nach dem Start** ändern | ❌ | ✅ |
-| Spiele/Runden ergänzen, entfernen, einzelne Spiele anlegen | ❌ | ✅ |
-| Spieltag wieder öffnen, Beenden rückgängig machen | ❌ | ✅ |
-| Bestehende Daten nachträglich ändern, Löschen (inkl. beendete Spiele korrigieren) | ❌ | ✅ (Funktionen dafür noch nicht gebaut) |
+| Aktion | Leser | Eintragen (nur am Spieltag) | Admin |
+|---|---|---|---|
+| Alles ansehen (Spieltage, Spiele, Live-Tabelle, Auswertung, Spieler) | ✅ | ✅ | ✅ |
+| Spieler anlegen (z. B. Gäste) | ❌ | ✅ | ✅ |
+| Anwesenheit und Teamzuordnung (**bis zum Start**) | ❌ | ✅ | ✅ |
+| Spieltag starten, beenden | ❌ | ✅ | ✅ |
+| Erstes Spiel, „Welches Team bleibt?“, restliche Spiele (3 Teams) | ❌ | ✅ | ✅ |
+| Tore zählen, Spiel beenden | ❌ | ✅ | ✅ |
+| Gleichstand bei Krone/Strichl entscheiden | ❌ | ✅ | ✅ |
+| Teamzuordnung **nach dem Start** ändern, Spieltag wieder öffnen, Beenden rückgängig | ❌ | ❌ | ✅ |
+| Spieltage und Teams anlegen/ändern/löschen, Spiele und Runden ändern, Gleichstand-Entscheidung ändern, „Eintragen sperren/freigeben“ | ❌ | ❌ | ✅ (Oberfläche teils noch offen) |
 
-- **Runde:** ein gemeinsames Konto (`login@sonntagskick.app`, in Supabase unter Authentication → Users angelegt). Die Anmeldeseite fragt nur nach dem **Passwort**; die E-Mail steht fest in `app/login/page.tsx` (`RUNDE_EMAIL`). Das Passwort wird in der Gruppe verteilt und liegt **nie** im Chat oder im Repo.
-- **Admins:** eigene Konten mit E-Mail und Passwort (Anmeldung über „Admin-Anmeldung“ auf der Anmeldeseite). Admin ist, wer **in der Tabelle `admins` eingetragen** ist, ein Konto allein reicht nicht. Aktuell 2 Admins.
+- **„Nur am Spieltag“ gilt automatisch:** Das Konto „Eintragen“ darf nur ändern, wenn das Datum des Spieltags **heute** ist (Zeitzone Europe/Vienna) und der Spieltag **nicht gesperrt** ist. Ein Admin kann pro Spieltag „🔒 Eintragen sperren“ und „🔓 Eintragen freigeben“ (Spalte `match_days.entry_locked`). Notfall: Konto in Supabase (Authentication → Users) sperren oder Passwort ändern.
+- **Leser:** gemeinsames Konto `login@sonntagskick.app` (Passwort für die ganze Runde). **Eintragen:** ein Konto `eintragen@sonntagskick.app` (Passwort nur an wenige Personen), eingetragen in der Tabelle `writers`. **Admins:** eigene Konten, eingetragen in `admins`. E-Mails von Leser und Eintragen stehen fest in `app/login/page.tsx`. Passwörter liegen **nie** im Chat oder im Repo.
 - **Selbstregistrierung ist ausgeschaltet** (Supabase: Authentication → Sign In / Providers → „Allow new users to sign up“ aus). Neue Konten legt nur ein Admin im Supabase-Dashboard an (Häkchen „Auto Confirm User“).
-- **Erweiterung auf Einzelkonten pro Spieler** ist später jederzeit möglich, ohne Datenbank-Umbau. Nachteil des gemeinsamen Zugangs: Die App weiß nicht, wer etwas eingetragen hat.
-- Passwort vergessen: Admins mit echter E-Mail können es zurücksetzen lassen, bei erfundenen Adressen (z. B. `admin@harry.app`) setzt man es im Supabase-Dashboard neu. Gelangt das Rundenpasswort nach außen: dort einmal ändern.
+- **Später/optional:** nur eine Anmeldung gleichzeitig pro Konto (Sitzungstabelle mit Lebenszeichen, Prüfung in den Funktionen, Zeitgrenze und Admin-Freigabe; Aufwand mittel bis hoch), weitere Einzelkonten pro Spieler.
+- Passwort vergessen: Admins mit echter E-Mail können es zurücksetzen lassen, bei erfundenen Adressen (z. B. `admin@harry.app`) setzt man es im Supabase-Dashboard neu. Gelangt ein Passwort nach außen: dort einmal ändern.
+- **Notfall am Spieltag:** `sonntagskick-schema-v8b-zurueck.sql` schaltet die Rollenprüfung aus (alle Angemeldeten dürfen wieder eintragen). Danach v8a erneut ausführen, um die Prüfung wiederherzustellen.
 
-### 4.2 Ist-Stand (15.10.2026, Skripte v4, v5, v6)
+### 4.2 Ist-Stand (16.10.2026, Skripte v4 bis v8b)
 - **Rolle `anon` (ohne Anmeldung) hat keinen Zugriff** auf Tabellen und Funktionen. Alle Regeln gelten für die Rolle `authenticated`.
-- Lesen: alle Tabellen (inkl. `match_day_awards`) für Angemeldete.
-- Anlegen für Angemeldete: players, season_players, match_days, teams, match_day_players und team_players (**nur solange der Spieltag nicht gestartet ist**). **Spiele (`games`) legen Angemeldete nicht mehr direkt an oder löschen sie** (seit v6 nur Admins über „Admin all games“); stattdessen Funktionen (siehe unten).
-- **Admins** (Tabelle `admins`, Prüffunktion `is_admin()`): Regel „Admin all …“ für **alle** Tabellen. Die Tabelle `admins` selbst ist von außen nicht lesbar.
-- **Es gibt für die Runde keine UPDATE-Policy.** Änderungen laufen über Funktionen (alle `security definer`, nur für Angemeldete):
+- **Lesen:** alle Tabellen (inkl. `match_day_awards`) für alle Angemeldeten.
+- **Prüffunktionen** (`security definer`, nur für Angemeldete): `is_admin()`, `is_writer()`, `my_role()` (liefert `admin`, `writer` oder `reader`), `can_edit_match_day(spieltag)` (Admin immer; Eintragen nur am Tag des Spieltags und nicht gesperrt), `can_write_today()` (Admin immer; Eintragen nur, wenn heute ein nicht gesperrter Spieltag ist).
+- **Anlegen/Löschen für Angemeldete:** `players` und `season_players` nur mit `can_write_today()`; `match_day_players` und `team_players` nur **vor dem Start** und mit `can_edit_match_day`; `match_day_awards` nur bei **beendetem** Spieltag und mit `can_edit_match_day`. `match_days`, `teams`, `games` legen/ändern/löschen nur Admins.
+- **Admins** (Tabelle `admins`): Regel „Admin all …“ für **alle** Tabellen. Die Tabellen `admins` und `writers` sind von außen nicht lesbar.
+- **Es gibt für Leser und Eintragen keine UPDATE-Policy.** Änderungen laufen über Funktionen (alle `security definer`, nur für Angemeldete, jede prüft `can_edit_match_day`):
   - `change_goal(p_game_id, p_side 'a'|'b', p_delta +1/-1)` (nie unter 0, nur bei nicht beendeten Spielen) und `finish_game(p_game_id)`;
   - `start_match_day(p_match_day_id)`;
   - `create_first_game(p_match_day_id, p_team_a, p_team_b)`: nur gestarteter, nicht beendeter Spieltag mit genau 3 Teams, nur wenn es noch kein Spiel gibt;
   - `create_remaining_games(p_match_day_id, p_stayer, p_rounds default 4)`: nur wenn genau ein, bereits **beendetes** Spiel existiert; Bleiber muss darin gespielt haben; legt Spiel 2 und 3 der Runde 1 und die Runden 2 bis p_rounds an (Standard 12 Spiele insgesamt);
   - `end_match_day(p_match_day_id)`: lehnt ab, wenn ein nicht beendetes Spiel Tore hat; löscht nicht beendete Spiele; setzt `finished_at`; liefert Anzahl entfernter und beendeter Spiele.
 - Damit überschreiben sich mehrere Handys nicht („+1/−1 auf den bestehenden Stand“).
-- `match_day_awards`: Lesen und Eintragen für Angemeldete (Eintragen **nur bei beendetem Spieltag**, Regel „Auth insert match_day_awards“, v7), Ändern/Löschen nur Admins; eindeutig pro Spieltag, Art und Team. Die Oberfläche steht (Auswertungsseite).
+- `match_day_awards`: eindeutig pro Spieltag, Art und Team; Ändern/Löschen nur Admins.
 - Beendete Spiele korrigieren dürfen technisch Admins, die **Oberfläche dafür fehlt noch**.
 
 ---
@@ -149,12 +148,12 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 
 | Adresse | Datei | Inhalt |
 |---|---|---|
-| `/login` | `app/login/page.tsx` | Anmeldung: Passwort der Runde, darunter „Admin-Anmeldung“ (E-Mail + Passwort) |
+| `/login` | `app/login/page.tsx` | Anmeldung mit drei Knöpfen (Leser, Eintragen, Admin); Benutzername fest bei Leser/Eintragen, E-Mail bei Admin; dazu das Passwort |
 | `/` | `app/page.tsx` | Dashboard mit Karten (Spieltage, Spieler; Statistiken und Strichl-Tabelle noch Platzhalter) |
-| `/players` | `app/players/page.tsx` | Spielerliste mit Typ der aktuellen Saison (Client-Komponente) |
-| `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ) |
-| `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“ |
-| `/matchdays/new` | `app/matchdays/new/page.tsx` | Spieltag anlegen (Datum, Modus, Kommentar) |
+| `/players` | `app/players/page.tsx` | Spielerliste mit Typ der aktuellen Saison; „➕ Spieler hinzufügen“ nur bei Berechtigung |
+| `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ); Admin oder Eintragen am Spieltag |
+| `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“; „➕ Neuer Spieltag“ nur für Admins |
+| `/matchdays/new` | `app/matchdays/new/page.tsx` | Spieltag anlegen (Datum, Modus, Kommentar), nur Admins |
 | `/matchdays/[id]` | `app/matchdays/[id]/page.tsx` | Anwesenheit und Teamzuordnung; „▶ Spieltag starten“ mit Kontrolldialog (Teamgrößen, gelber Hinweis bei Teams ohne 4 Spieler, „Nicht da: …“); „🏁 Spieltag beenden“ mit Kontrolldialog; danach Zuordnung gesperrt; Admin: „Beenden rückgängig machen“, „Spieltag wieder öffnen“; Knöpfe zu Spielen (erst nach Start) und Auswertung |
 | `/matchdays/[id]/games` | `app/matchdays/[id]/games/page.tsx` | Spieleübersicht: Kasten „Teams“ mit Spitznamen, Button „📊 Live-Tabelle“, großer Button „▶ Nächstes Spiel zählen“, Spiele nach Runden. Standard-Ablauf bei 3 Teams (erstes Spiel → Bleiber nach Spiel 1 → Bestätigung); Admin-Werkzeuge (Runde ergänzen, letzte Runde entfernen, einzelnes Spiel, Spiel entfernen) |
 | `/matchdays/[id]/games/[gameId]` | `app/matchdays/[id]/games/[gameId]/page.tsx` | Live-Torezählen mit Spitznamen, Button zur Live-Tabelle; nach „Spiel beenden“ zurück zur Spieleübersicht |
@@ -227,12 +226,13 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | `players` | name (Pflicht), nickname (optional, UNIQUE), active (Pflicht) |
 | `seasons` | season_name (Pflicht, UNIQUE), start_date, end_date, active |
 | `season_players` | season_id, player_id, player_type (`stamm` / `springer` / `gast`), eindeutig pro Saison und Spieler |
-| `match_days` | season_id, play_date, match_format (optional: `3_teams`, `2_teams`, `4_teams`, `open`), notes (optional), **started_at** (leer = nicht gestartet; gesetzt durch `start_match_day`), **finished_at** (leer = nicht beendet; gesetzt durch `end_match_day`) |
+| `match_days` | season_id, play_date, match_format (optional: `3_teams`, `2_teams`, `4_teams`, `open`), notes (optional), **started_at** (leer = nicht gestartet; gesetzt durch `start_match_day`), **finished_at** (leer = nicht beendet; gesetzt durch `end_match_day`), **entry_locked** (Standard false; Admin sperrt damit das Eintragen für diesen Spieltag) |
 | `match_day_players` | match_day_id, player_id (Spieler war anwesend) |
 | `teams` | match_day_id, team_number |
 | `team_players` | team_id, player_id |
 | `games` | match_day_id, round_number, game_number (Reihenfolge, eindeutig pro Spieltag), team_a_id, team_b_id, goals_team_a, goals_team_b, finished (Standard false), notes |
 | `admins` | email (Primary Key). Wer hier steht und ein Konto hat, ist Admin. Von außen nicht lesbar |
+| `writers` | email (Primary Key). Konten, die am Spieltag eintragen dürfen (aktuell `eintragen@sonntagskick.app`). Von außen nicht lesbar |
 | `match_day_awards` | match_day_id, award_type (`crown` / `strichl`), team_id, notes. Enthält **nur manuelle** Entscheidungen. Noch ohne Oberfläche |
 
 **Schutzregeln in der Datenbank:** Fremdschlüssel überall (Löschen eines Spieltags löscht Teams, Zuordnungen und Spiele mit; Spieler und Saisons mit Daten lassen sich nicht löschen), Tore ≥ 0, Team A ≠ Team B, Runde ≥ 1, Saison-Ende ≥ Saison-Start, Spieler nur einmal pro Spieltag, Teamnummer nur einmal pro Spieltag, Spieler nur einmal pro Team, Spielnummer nur einmal pro Spieltag. Zur `match_format`-Spalte: sie hält nur die Auswahl beim Anlegen fest, die echten Daten stehen in `teams` und `games`.
@@ -245,6 +245,8 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 - `sonntagskick-spieltage-vorab.sql` (ausgeführt 14.10.2026, **mehrfach ausführbar**): legt Spieltage mit je 3 Teams für eine selbst gepflegte Terminliste an; vorhandene Daten werden übersprungen.
 - `sonntagskick-schema-v4-auth.sql` (ausgeführt 14.10.2026): Tabelle `admins`, Funktion `is_admin()`, alle offenen „Public“-Regeln ersetzt durch Regeln für `authenticated` plus „Admin all …“, Funktionen nur noch für Angemeldete. **Nicht erneut ausführen.**
 - `sonntagskick-schema-v5-start.sql` (ausgeführt 14.10.2026): `match_days.started_at`, Funktion `start_match_day`, Sperre von Anwesenheit/Teamzuordnung nach dem Start. **Nicht erneut ausführen.**
+- `sonntagskick-schema-v8a-rollen.sql` (ausgeführt 16.10.2026, **mehrfach ausführbar**, fügt nur Neues hinzu): Tabelle `writers`, Funktionen `is_writer`, `my_role`, `can_edit_match_day`, `can_write_today`, Spalte `match_days.entry_locked`.
+- `sonntagskick-schema-v8b-rollen-regeln.sql` (ausgeführt 16.10.2026, **mehrfach ausführbar**): schaltet die Rollen scharf (Regeln für `players`, `season_players`, `match_days`, `teams`, `match_day_players`, `team_players`, `match_day_awards` und alle Eintragen-Funktionen mit Prüfung `can_edit_match_day`). Notfall: `sonntagskick-schema-v8b-zurueck.sql` (macht die beiden Prüffunktionen „immer erlaubt“; danach v8a erneut ausführen).
 - `sonntagskick-schema-v7-gleichstand.sql` (ausgeführt 15.10.2026, **mehrfach ausführbar**): Regel „Auth insert match_day_awards“ (nur bei beendetem Spieltag), eindeutiger Index auf `match_day_awards`.
 - `sonntagskick-schema-v6-runden-ende.sql` (ausgeführt 15.10.2026, **mehrfach ausführbar**): `match_days.finished_at`, Regeln „Auth insert games“ und „Auth delete unplayed games“ entfernt (Spiele direkt anlegen/löschen nur Admins), Funktionen `create_first_game`, `create_remaining_games`, `end_match_day`. Die frühere Funktion `create_standard_games` (Bleiber vor dem ersten Spiel) wurde verworfen.
 
@@ -298,7 +300,8 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 ## 9. Offene Punkte / nächste Schritte
 
 ### 9.1 Merkliste für die nächste Sitzung (vom Nutzer gewünscht, unbedingt aufgreifen)
-0. **Rollenkonzept diskutieren (Wunsch des Nutzers, 15.10.2026), vor dem Verteilen des Links:** Der gemeinsame Rundenzugang erlaubt jedem mit Link und Passwort, vorab Spieler, Spieltage und Daten einzutragen (absichtlich oder versehentlich). Vorschlag: (a) **Lesen für alle**, ohne Eintragen; (b) neue Rolle **„Eintragen“**, die **nur an Spieltagen** funktioniert und auf **2 bis 3 Nutzer gleichzeitig** begrenzt ist; (c) **Admins** wie gehabt (alles). Zu klären: technische Begrenzung gleichzeitiger Nutzer, Zeitfenster (Sonntag, Europe/Vienna) oder Freischaltung durch Admin am Spieltag, welche Aktionen der Schreiber darf, Auswirkungen auf RLS (Rolle/Tabelle `writers`, Funktionen prüfen Rolle und Spieltag) und Oberfläche. Betrifft Abschnitt 4. **Diskussionsfragen:** (1) Wie begrenzt man „2 bis 3 gleichzeitig“ (harte Grenze aufwendig, einfachere Wege prüfen)? (2) „Nur an Spieltagen“: Zeitfenster Sonntag oder Freischaltung durch Admin? (3) Was darf der Eintragende, was der reine Leser?
+0. ~~Rollenkonzept~~: **umgesetzt am 16.10.2026** (siehe 4.1). Offen daraus: optional Einzelanmeldung pro Konto.
+0a. ~~Live-Tabelle inkl. laufendes Spiel~~: **erledigt 16.10.2026** (Umschalter „Nur beendete“ / „Inkl. laufendes“).
 0b. **Admin: Spieler ändern** (Name, Spitzname, aktiv/inaktiv), falls sich jemand beim Eintragen vertippt hat. Oberfläche fehlt heute.
 0c. **Neues Feature, geringe Priorität: Auslosung der Teams per Knopfdruck** (zufällig, mit Tauschen; siehe 3.2). Beachten: gleich große Teams (normal 4), Nicht-Anwesende ausnehmen, Ergebnis bestätigen, dann erst zuordnen.
 1. **Erinnerung (auf Wunsch des Nutzers): Team 4 / „Spieltag bearbeiten“.** Admin: Datum, Modus, Kommentar ändern, Team ergänzen, Spieltag löschen. Modus-Wechsel auf 2 oder 4 Teams; bei 2 Teams Runden erweiterbar (Admin). Niedrige Priorität, 95 % der Spieltage sind 3 Teams und 4 Runden. Bis dahin Notlösung: Team in Supabase von Hand eintragen oder Spieltag mit 4 Teams neu anlegen, solange nichts eingetragen ist.
@@ -310,7 +313,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 4. ~~„nicht da“-Knopf~~: erledigt am 15.10.2026 (wie die Team-Knöpfe, ausgewählt orange).
 5. **Auswertungen Saison/All-Time** (Kronen, Strichl, Anwesenheit, Duos, Angstgegner, Tore im Team), Filter nach Spielertyp. Dashboard-Karten Statistiken und Strichl-Tabelle verlinken. Auswertungsseite: Beschriftung „Endstand“ bei beendetem Spieltag.
 6. Kleinere Verbesserungen: Spieler bearbeiten und inaktiv setzen, Saison anlegen, Typ pro Saison ändern, Kommentar pro Spiel, 7-Minuten-Stoppuhr.
-7. **Vor dem echten Einsatz:** Handytest über Mobilfunk, Passwort der Runde verteilen, Link `sonntagskick.vercel.app` weitergeben, Handy-Startbildschirm-Verknüpfung. (Testdaten sind am 15.10.2026 bereits zurückgesetzt.)
+7. **Vor dem echten Einsatz:** CSV-Backup testen, Handytest über Mobilfunk, Passwörter verteilen (Leser an alle, Eintragen nur an wenige), Link `sonntagskick.vercel.app` weitergeben, Handy-Startbildschirm-Verknüpfung. (Testdaten sind am 16.10.2026 zurückgesetzt, Rollen getestet.)
 8. **Backups/Historie (Wunsch des Nutzers, 15.10.2026):** (A) vor dem ersten echten Spieltag CSV-Export aller Tabellen testen, danach nach jedem Spieltag (kleiner Aufwand). (B) Seite „Spielbericht“ pro Spieltag mit PDF per Drucken, evtl. Export-Knopf (mittlerer Aufwand, ein Arbeitsschritt). (C) später automatisches Backup per GitHub-Zeitplan in ein privates Archiv; das DB-Passwort liegt nur als GitHub-Secret (größerer Aufwand). (D) bezahlter Supabase-Tarif mit täglichen Backups, aktuell nicht nötig. Im Free-Tarif unter Database → Backups prüfen, was enthalten ist; inaktive Projekte werden pausiert.
 9. Optional: Einzelkonten pro Spieler statt gemeinsamem Zugang (siehe 4.1). Im Claude-Projekt ist das GitHub-Repo mehrfach als Quelle eingetragen (harmlos, kann entfernt werden).
 
@@ -327,3 +330,4 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 14.10.2026 (abends) | Version 6: Anmeldung eingeführt (Login-Seite, AuthGate, Rundenkonto + Admins, Tabelle `admins`, alle Regeln auf `authenticated`, Selbstregistrierung aus), alle Seiten als Client-Komponenten, Spieltage-Liste mit „Nächster Spieltag“, Spieltag starten mit Sperre der Zuordnung (`started_at`, Skripte v4 und v5), Skript für vorab angelegte Spieltage |
 | 15.10.2026 | Version 7: Skript v6 (`finished_at`, Funktionen `create_first_game`, `create_remaining_games`, `end_match_day`, Spiele nur noch über Funktionen/Admin). Standard 4 Runden bei 3 Teams in zwei Schritten (Bleiber erst nach dem ersten Spiel), „Spieltag beenden“, Bestätigungsfragen, Hinweis bei Teams ohne 4 Spieler, Nach-Spielende-zurück zur Übersicht, „Nächstes Spiel zählen“, Spitznamen bei den Teams, Live-Tabelle. Abschnitte 2.3, 2.4, 3.1, 4, 5.1, 6 und 8 überarbeitet, Merkliste auf Team-4-Erinnerung gekürzt |
 | 15.10.2026 (abends) | Version 8: Skript v7 (Gleichstand-Entscheidung per Datenbank-Regel), Entscheidung von Hand auf der Auswertungsseite (alle dürfen, Admins ändern), auffälliger Hinweis, nach „Spieltag beenden“ direkt zur Auswertung, „nicht da“-Knopf wie die Team-Knöpfe, Testdaten zurückgesetzt, Backup-Ideen (A bis D) in die Merkliste |
+| 16.10.2026 | Version 9: Rollenkonzept umgesetzt (Leser, Eintragen nur am Spieltag mit Sperre durch Admin, Admin): Skripte v8a und v8b (plus Notfallskript), Tabelle `writers`, Spalte `entry_locked`, Prüffunktionen, alle Eintragen-Funktionen prüfen die Berechtigung, Anmeldeseite mit drei Knöpfen, Oberfläche je Rolle (Hinweise „Nur ansehen“, Knöpfe ausgeblendet), Konto `eintragen@sonntagskick.app`. Abschnitte 4, 5.1, 6, 9 überarbeitet |
