@@ -36,6 +36,7 @@ export default function LiveTablePage() {
   const [names, setNames] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [includeRunning, setIncludeRunning] = useState(false);
 
   const load = useCallback(async () => {
     const { data: teamRows, error } = await supabase
@@ -95,6 +96,9 @@ export default function LiveTablePage() {
   const runningGames = games.filter(
     (g) => !g.finished && (g.goals_team_a > 0 || g.goals_team_b > 0)
   );
+  const countedGames = includeRunning
+    ? [...finishedGames, ...runningGames]
+    : finishedGames;
   const teamName = (id: string) => {
     const t = teams.find((x) => x.id === id);
     return t ? `Team ${t.team_number}` : "?";
@@ -112,7 +116,7 @@ export default function LiveTablePage() {
       diff: 0,
       points: 0,
     };
-    finishedGames.forEach((g) => {
+    countedGames.forEach((g) => {
       let own: number;
       let other: number;
       if (g.team_a_id === team.id) {
@@ -159,9 +163,37 @@ export default function LiveTablePage() {
       </Link>
 
       <h1 className="text-3xl font-bold mt-2 mb-1">📊 Live-Tabelle</h1>
-      <p className="text-sm text-gray-600 mb-4">
-        Nur beendete Spiele zählen. Aktualisiert sich automatisch.
+      <p className="text-sm text-gray-600 mb-3">
+        {includeRunning
+          ? "Inkl. laufendes Spiel (Zwischenstand, kann sich noch ändern)."
+          : "Nur beendete Spiele zählen."}{" "}
+        Aktualisiert sich automatisch.
       </p>
+
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setIncludeRunning(false)}
+          className={`flex-1 py-2 rounded-xl font-semibold border ${
+            !includeRunning
+              ? "bg-green-700 text-white border-green-700"
+              : "bg-white text-gray-800 border-gray-300"
+          }`}
+        >
+          Nur beendete
+        </button>
+        <button
+          type="button"
+          onClick={() => setIncludeRunning(true)}
+          className={`flex-1 py-2 rounded-xl font-semibold border ${
+            includeRunning
+              ? "bg-green-700 text-white border-green-700"
+              : "bg-white text-gray-800 border-gray-300"
+          }`}
+        >
+          Inkl. laufendes
+        </button>
+      </div>
 
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
@@ -219,7 +251,11 @@ export default function LiveTablePage() {
 
       {runningGames.length > 0 && (
         <div className="bg-white rounded-xl shadow p-4 mt-4">
-          <p className="font-semibold mb-1">Läuft gerade (zählt noch nicht)</p>
+          <p className="font-semibold mb-1">
+            {includeRunning
+              ? "Läuft gerade (in der Tabelle eingerechnet)"
+              : "Läuft gerade (zählt noch nicht)"}
+          </p>
           {runningGames.map((g) => (
             <p key={g.id} className="text-lg">
               {teamName(g.team_a_id)} {g.goals_team_a} : {g.goals_team_b}{" "}
