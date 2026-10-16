@@ -151,7 +151,7 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 | `/login` | `app/login/page.tsx` | Anmeldung mit drei Knöpfen (Leser, Eintragen, Admin); Benutzername fest bei Leser/Eintragen, E-Mail bei Admin; dazu das Passwort |
 | `/` | `app/page.tsx` | Dashboard mit Karten (Spieltage, Spieler; Statistiken und Strichl-Tabelle noch Platzhalter) |
 | `/players` | `app/players/page.tsx` | Spielerliste mit Typ der aktuellen Saison; „➕ Spieler hinzufügen“ nur bei Berechtigung |
-| `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ); Admin oder Eintragen am Spieltag |
+| `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ); Admin oder Eintragen am Spieltag; gleicher Name/Spitzname wird abgelehnt, bei ähnlichem Namen gelbe Warnung mit „Trotzdem anlegen“ |
 | `/players/[id]/edit` | `app/players/[id]/edit/page.tsx` | Spieler ändern (Name, Spitzname, Typ in der aktuellen Saison, Aktiv/Inaktiv); nur Admins |
 | `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“; „➕ Neuer Spieltag“ nur für Admins |
 | `/matchdays/new` | `app/matchdays/new/page.tsx` | Spieltag anlegen (Datum, Modus, Kommentar), nur Admins |
@@ -246,6 +246,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 - `sonntagskick-spieltage-vorab.sql` (ausgeführt 14.10.2026, **mehrfach ausführbar**): legt Spieltage mit je 3 Teams für eine selbst gepflegte Terminliste an; vorhandene Daten werden übersprungen.
 - `sonntagskick-schema-v4-auth.sql` (ausgeführt 14.10.2026): Tabelle `admins`, Funktion `is_admin()`, alle offenen „Public“-Regeln ersetzt durch Regeln für `authenticated` plus „Admin all …“, Funktionen nur noch für Angemeldete. **Nicht erneut ausführen.**
 - `sonntagskick-schema-v5-start.sql` (ausgeführt 14.10.2026): `match_days.started_at`, Funktion `start_match_day`, Sperre von Anwesenheit/Teamzuordnung nach dem Start. **Nicht erneut ausführen.**
+- `sonntagskick-schema-v9-spieler-eindeutig.sql` (ausgeführt 16.10.2026, **mehrfach ausführbar**): eindeutiger Name und Spitzname in `players` (Groß/Klein und Leerzeichen am Rand egal), Indizes `players_name_unique_ci`, `players_nickname_unique_ci`.
 - `sonntagskick-schema-v8a-rollen.sql` (ausgeführt 16.10.2026, **mehrfach ausführbar**, fügt nur Neues hinzu): Tabelle `writers`, Funktionen `is_writer`, `my_role`, `can_edit_match_day`, `can_write_today`, Spalte `match_days.entry_locked`.
 - `sonntagskick-schema-v8b-rollen-regeln.sql` (ausgeführt 16.10.2026, **mehrfach ausführbar**): schaltet die Rollen scharf (Regeln für `players`, `season_players`, `match_days`, `teams`, `match_day_players`, `team_players`, `match_day_awards` und alle Eintragen-Funktionen mit Prüfung `can_edit_match_day`). Notfall: `sonntagskick-schema-v8b-zurueck.sql` (macht die beiden Prüffunktionen „immer erlaubt“; danach v8a erneut ausführen).
 - `sonntagskick-schema-v7-gleichstand.sql` (ausgeführt 15.10.2026, **mehrfach ausführbar**): Regel „Auth insert match_day_awards“ (nur bei beendetem Spieltag), eindeutiger Index auf `match_day_awards`.
@@ -304,6 +305,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 0. ~~Rollenkonzept~~: **umgesetzt am 16.10.2026** (siehe 4.1). Offen daraus: optional Einzelanmeldung pro Konto.
 0a. ~~Live-Tabelle inkl. laufendes Spiel~~: **erledigt 16.10.2026** (Umschalter „Nur beendete“ / „Inkl. laufendes“).
 0b. ~~Admin: Spieler ändern~~: **erledigt 16.10.2026** (Seite `/players/[id]/edit`).
+0c. ~~Doppelte Spieler vermeiden~~: **erledigt 16.10.2026** (Sperre v9 und Warnung bei ähnlichen Namen). **Offen:** Admin-Funktion „Spieler zusammenführen“ (Saison-Typen je Saison, Anwesenheit, Teamzuordnung umhängen; Konflikte vorher anzeigen, Bestätigung).
 0c. **Neues Feature, geringe Priorität: Auslosung der Teams per Knopfdruck** (zufällig, mit Tauschen; siehe 3.2). Beachten: gleich große Teams (normal 4), Nicht-Anwesende ausnehmen, Ergebnis bestätigen, dann erst zuordnen.
 1. **Erinnerung (auf Wunsch des Nutzers): Team 4 / „Spieltag bearbeiten“.** Admin: Datum, Modus, Kommentar ändern, Team ergänzen, Spieltag löschen. Modus-Wechsel auf 2 oder 4 Teams; bei 2 Teams Runden erweiterbar (Admin). Niedrige Priorität, 95 % der Spieltage sind 3 Teams und 4 Runden. Bis dahin Notlösung: Team in Supabase von Hand eintragen oder Spieltag mit 4 Teams neu anlegen, solange nichts eingetragen ist.
 
@@ -333,3 +335,4 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 15.10.2026 (abends) | Version 8: Skript v7 (Gleichstand-Entscheidung per Datenbank-Regel), Entscheidung von Hand auf der Auswertungsseite (alle dürfen, Admins ändern), auffälliger Hinweis, nach „Spieltag beenden“ direkt zur Auswertung, „nicht da“-Knopf wie die Team-Knöpfe, Testdaten zurückgesetzt, Backup-Ideen (A bis D) in die Merkliste |
 | 16.10.2026 | Version 9: Rollenkonzept umgesetzt (Leser, Eintragen nur am Spieltag mit Sperre durch Admin, Admin): Skripte v8a und v8b (plus Notfallskript), Tabelle `writers`, Spalte `entry_locked`, Prüffunktionen, alle Eintragen-Funktionen prüfen die Berechtigung, Anmeldeseite mit drei Knöpfen, Oberfläche je Rolle (Hinweise „Nur ansehen“, Knöpfe ausgeblendet), Konto `eintragen@sonntagskick.app`. Abschnitte 4, 5.1, 6, 9 überarbeitet |
 | 16.10.2026 (abends) | Live-Tabelle mit Umschalter „Nur beendete“ / „Inkl. laufendes“; Admin kann Spieler ändern (Seite `/players/[id]/edit`, Knopf „✏ Ändern“ in der Spielerliste). Inaktive Spieler erscheinen nicht in der Anwesenheit eines Spieltags |
+| 17.10.2026 | Spielerliste mit Testspielern geleert und neu aufgebaut; Skript v9 (eindeutige Namen), Warnung bei ähnlichen Namen beim Anlegen |
