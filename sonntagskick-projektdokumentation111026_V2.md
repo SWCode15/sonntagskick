@@ -152,6 +152,7 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 | `/` | `app/page.tsx` | Dashboard mit Karten (Spieltage, Spieler; Statistiken und Strichl-Tabelle noch Platzhalter) |
 | `/players` | `app/players/page.tsx` | Spielerliste mit Typ der aktuellen Saison; „➕ Spieler hinzufügen“ nur bei Berechtigung |
 | `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ); Admin oder Eintragen am Spieltag |
+| `/players/[id]/edit` | `app/players/[id]/edit/page.tsx` | Spieler ändern (Name, Spitzname, Typ in der aktuellen Saison, Aktiv/Inaktiv); nur Admins |
 | `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“; „➕ Neuer Spieltag“ nur für Admins |
 | `/matchdays/new` | `app/matchdays/new/page.tsx` | Spieltag anlegen (Datum, Modus, Kommentar), nur Admins |
 | `/matchdays/[id]` | `app/matchdays/[id]/page.tsx` | Anwesenheit und Teamzuordnung; „▶ Spieltag starten“ mit Kontrolldialog (Teamgrößen, gelber Hinweis bei Teams ohne 4 Spieler, „Nicht da: …“); „🏁 Spieltag beenden“ mit Kontrolldialog; danach Zuordnung gesperrt; Admin: „Beenden rückgängig machen“, „Spieltag wieder öffnen“; Knöpfe zu Spielen (erst nach Start) und Auswertung |
@@ -302,7 +303,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 ### 9.1 Merkliste für die nächste Sitzung (vom Nutzer gewünscht, unbedingt aufgreifen)
 0. ~~Rollenkonzept~~: **umgesetzt am 16.10.2026** (siehe 4.1). Offen daraus: optional Einzelanmeldung pro Konto.
 0a. ~~Live-Tabelle inkl. laufendes Spiel~~: **erledigt 16.10.2026** (Umschalter „Nur beendete“ / „Inkl. laufendes“).
-0b. **Admin: Spieler ändern** (Name, Spitzname, aktiv/inaktiv), falls sich jemand beim Eintragen vertippt hat. Oberfläche fehlt heute.
+0b. ~~Admin: Spieler ändern~~: **erledigt 16.10.2026** (Seite `/players/[id]/edit`).
 0c. **Neues Feature, geringe Priorität: Auslosung der Teams per Knopfdruck** (zufällig, mit Tauschen; siehe 3.2). Beachten: gleich große Teams (normal 4), Nicht-Anwesende ausnehmen, Ergebnis bestätigen, dann erst zuordnen.
 1. **Erinnerung (auf Wunsch des Nutzers): Team 4 / „Spieltag bearbeiten“.** Admin: Datum, Modus, Kommentar ändern, Team ergänzen, Spieltag löschen. Modus-Wechsel auf 2 oder 4 Teams; bei 2 Teams Runden erweiterbar (Admin). Niedrige Priorität, 95 % der Spieltage sind 3 Teams und 4 Runden. Bis dahin Notlösung: Team in Supabase von Hand eintragen oder Spieltag mit 4 Teams neu anlegen, solange nichts eingetragen ist.
 
@@ -331,3 +332,4 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 15.10.2026 | Version 7: Skript v6 (`finished_at`, Funktionen `create_first_game`, `create_remaining_games`, `end_match_day`, Spiele nur noch über Funktionen/Admin). Standard 4 Runden bei 3 Teams in zwei Schritten (Bleiber erst nach dem ersten Spiel), „Spieltag beenden“, Bestätigungsfragen, Hinweis bei Teams ohne 4 Spieler, Nach-Spielende-zurück zur Übersicht, „Nächstes Spiel zählen“, Spitznamen bei den Teams, Live-Tabelle. Abschnitte 2.3, 2.4, 3.1, 4, 5.1, 6 und 8 überarbeitet, Merkliste auf Team-4-Erinnerung gekürzt |
 | 15.10.2026 (abends) | Version 8: Skript v7 (Gleichstand-Entscheidung per Datenbank-Regel), Entscheidung von Hand auf der Auswertungsseite (alle dürfen, Admins ändern), auffälliger Hinweis, nach „Spieltag beenden“ direkt zur Auswertung, „nicht da“-Knopf wie die Team-Knöpfe, Testdaten zurückgesetzt, Backup-Ideen (A bis D) in die Merkliste |
 | 16.10.2026 | Version 9: Rollenkonzept umgesetzt (Leser, Eintragen nur am Spieltag mit Sperre durch Admin, Admin): Skripte v8a und v8b (plus Notfallskript), Tabelle `writers`, Spalte `entry_locked`, Prüffunktionen, alle Eintragen-Funktionen prüfen die Berechtigung, Anmeldeseite mit drei Knöpfen, Oberfläche je Rolle (Hinweise „Nur ansehen“, Knöpfe ausgeblendet), Konto `eintragen@sonntagskick.app`. Abschnitte 4, 5.1, 6, 9 überarbeitet |
+| 16.10.2026 (abends) | Live-Tabelle mit Umschalter „Nur beendete“ / „Inkl. laufendes“; Admin kann Spieler ändern (Seite `/players/[id]/edit`, Knopf „✏ Ändern“ in der Spielerliste). Inaktive Spieler erscheinen nicht in der Anwesenheit eines Spieltags |
