@@ -11,6 +11,48 @@ const PLAYER_TYPES = [
   { value: "gast", label: "Gast" },
 ];
 
+// Schreibweise vereinheitlichen: klein, ohne Umlaut-Zeichen/Leerzeichen/Satzzeichen
+function norm(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+// Anzahl der Änderungen (Einfügen, Löschen, Ersetzen) zwischen zwei Wörtern
+function distance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let last = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(
+        prev[j] + 1,
+        prev[j - 1] + 1,
+        last + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+      last = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+// Sind zwei Namen so ähnlich, dass es dieselbe Person sein könnte?
+function isSimilar(x: string, y: string): boolean {
+  const a = norm(x);
+  const b = norm(y);
+  if (a === "" || b === "") return false;
+  if (a === b) return true;
+  const shorter = Math.min(a.length, b.length);
+  if (shorter >= 3 && (a.startsWith(b) || b.startsWith(a))) return true;
+  const limit = Math.max(1, Math.floor(Math.max(a.length, b.length) / 3));
+  return distance(a, b) <= limit;
+}
+
+type ExistingPlayer = { name: string; nickname: string | null };
+
 export default function NewPlayerPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -18,6 +60,8 @@ export default function NewPlayerPage() {
   const [playerType, setPlayerType] = useState("stamm");
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Ähnliche Spieler, die vor dem Speichern bestätigt werden müssen
+  const [similar, setSimilar] = useState<ExistingPlayer[] | null>(null);
   // Darf dieses Konto hier eintragen? (null = wird noch geprüft)
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => {
@@ -26,6 +70,10 @@ export default function NewPlayerPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await checkAndSave(false);
+  }
+
+  async function checkAndSave(skipSimilarCheck: boolean) {
     setErrorMessage(null);
 
     const cleanName = name.trim();
@@ -35,6 +83,47 @@ export default function NewPlayerPage() {
       setErrorMessage("Bitte einen Namen eingeben.");
       return;
     }
+
+    // Ähnliche Namen prüfen
+    const { data: existing } = await supabase
+      .from("players")
+      .select("name, nickname");
+    const others = (existing ?? []) as ExistingPlayer[];
+
+    // Gleicher Name oder Spitzname (egal ob groß/klein): nicht erlaubt
+    const same = others.find(
+      (o) =>
+        norm(o.name) === norm(cleanName) ||
+        (cleanNickname !== "" &&
+          o.nickname !== null &&
+          norm(o.nickname) === norm(cleanNickname)) ||
+        (cleanNickname !== "" && norm(o.name) === norm(cleanNickname)) ||
+        (o.nickname !== null && norm(o.nickname) === norm(cleanName))
+    );
+    if (same) {
+      setSimilar(null);
+      setErrorMessage(
+        `Diesen Spieler gibt es schon: ${same.nickname ?? same.name}` +
+          (same.nickname ? ` (${same.name})` : "") +
+          ".");
+      return;
+    }
+
+    if (!skipSimilarCheck) {
+      const found = others.filter(
+        (o) =>
+          isSimilar(cleanName, o.name) ||
+          (o.nickname !== null && isSimilar(cleanName, o.nickname)) ||
+          (cleanNickname !== "" &&
+            (isSimilar(cleanNickname, o.name) ||
+              (o.nickname !== null && isSimilar(cleanNickname, o.nickname))))
+      );
+      if (found.length > 0) {
+        setSimilar(found);
+        return;
+      }
+    }
+    setSimilar(null);
 
     setSaving(true);
 
@@ -138,7 +227,10 @@ export default function NewPlayerPage() {
               id="name"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setSimilar(null);
+              }}
               placeholder="z. B. Max M."
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-lg"
               autoComplete="off"
@@ -153,7 +245,10 @@ export default function NewPlayerPage() {
               id="nickname"
               type="text"
               value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
+              onChange={(e) => {
+                setNickname(e.target.value);
+                setSimilar(null);
+              }}
               placeholder="z. B. Maxi"
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-lg"
               autoComplete="off"
@@ -185,6 +280,34 @@ export default function NewPlayerPage() {
 
           {errorMessage && (
             <p className="text-red-600 font-medium">{errorMessage}</p>
+          )}
+
+          {similar && (
+            <div className="rounded-xl border-2 border-yellow-500 bg-yellow-50 p-4">
+              <p className="font-semibold text-yellow-900 mb-2">
+                ⚠ Ähnlich wie schon vorhandene Spieler:
+              </p>
+              <ul className="mb-3 space-y-1">
+                {similar.map((o, i) => (
+                  <li key={i} className="text-yellow-900">
+                    <span className="font-bold">{o.nickname ?? o.name}</span>
+                    {o.nickname && ` (${o.name})`}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-sm text-yellow-900 mb-3">
+                Ist es dieselbe Person, bitte nicht neu anlegen. Ist es eine
+                andere Person, mit „Trotzdem anlegen“ speichern.
+              </p>
+              <button
+                type="button"
+                onClick={() => checkAndSave(true)}
+                disabled={saving}
+                className="w-full rounded-xl bg-yellow-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
+              >
+                Trotzdem anlegen
+              </button>
+            </div>
           )}
 
           <button
