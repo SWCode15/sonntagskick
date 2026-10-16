@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -29,6 +29,11 @@ export default function NewMatchDayPage() {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Darf dieses Konto hier eintragen? (null = wird noch geprüft)
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    supabase.rpc("is_admin").then(({ data }) => setAllowed(data === true));
+  }, []);
 
   const isOpen = formatId === "open";
   const teamCount = isOpen
@@ -102,6 +107,27 @@ export default function NewMatchDayPage() {
 
     router.push("/matchdays");
     router.refresh();
+  }
+
+  if (allowed === null) {
+    return (
+      <main className="min-h-screen bg-green-100 p-6">
+        <p>Lädt…</p>
+      </main>
+    );
+  }
+
+  if (!allowed) {
+    return (
+      <main className="min-h-screen bg-green-100 p-6">
+        <p className="rounded-xl border border-gray-400 bg-white p-4 mb-4 font-semibold text-gray-700">
+          Neue Spieltage legt nur ein Admin an.
+        </p>
+        <Link href="/matchdays" className="text-green-800 font-medium">
+          ← Zurück
+        </Link>
+      </main>
+    );
   }
 
   return (

@@ -20,6 +20,11 @@ export default function PlayersPage() {
   );
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [canAdd, setCanAdd] = useState(false);
+
+  useEffect(() => {
+    supabase.rpc("can_write_today").then(({ data }) => setCanAdd(data === true));
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -67,12 +72,14 @@ export default function PlayersPage() {
       <h1 className="text-3xl font-bold mb-2">Spieler</h1>
       {seasonName && <p className="text-gray-600 mb-6">Saison {seasonName}</p>}
 
-      <Link
-        href="/players/new"
-        className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white mb-6"
-      >
-        ➕ Spieler hinzufügen
-      </Link>
+      {canAdd && (
+        <Link
+          href="/players/new"
+          className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white mb-6"
+        >
+          ➕ Spieler hinzufügen
+        </Link>
+      )}
 
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">

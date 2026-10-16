@@ -57,6 +57,11 @@ export default function MatchDaysPage() {
   const [matchDays, setMatchDays] = useState<MatchDayRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    supabase.rpc("is_admin").then(({ data }) => setIsAdmin(data === true));
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -88,12 +93,14 @@ export default function MatchDaysPage() {
     <main className="min-h-screen bg-green-100 p-6">
       <h1 className="text-3xl font-bold mb-6">Spieltage</h1>
 
-      <Link
-        href="/matchdays/new"
-        className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white mb-6"
-      >
-        ➕ Neuer Spieltag
-      </Link>
+      {isAdmin && (
+        <Link
+          href="/matchdays/new"
+          className="inline-block rounded-xl bg-green-600 px-6 py-4 text-lg font-semibold text-white mb-6"
+        >
+          ➕ Neuer Spieltag
+        </Link>
+      )}
 
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">
