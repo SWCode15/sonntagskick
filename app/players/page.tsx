@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-type Player = { id: string; name: string; nickname: string | null };
+type Player = {
+  id: string;
+  name: string;
+  nickname: string | null;
+  active: boolean;
+};
 
 const TYPE_LABELS: Record<string, string> = {
   stamm: "Stammspieler",
@@ -21,16 +26,18 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [canAdd, setCanAdd] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     supabase.rpc("can_write_today").then(({ data }) => setCanAdd(data === true));
+    supabase.rpc("my_role").then(({ data }) => setIsAdmin(data === "admin"));
   }, []);
 
   useEffect(() => {
     async function load() {
       const { data: playerRows, error } = await supabase
         .from("players")
-        .select("id, name, nickname")
+        .select("id, name, nickname, active")
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -102,7 +109,18 @@ export default function PlayersPage() {
               )}
               <p className="text-green-700 font-medium mt-1">
                 {type ? TYPE_LABELS[type] ?? type : "Kein Typ in dieser Saison"}
+                {!player.active && (
+                  <span className="ml-2 text-gray-500">· inaktiv</span>
+                )}
               </p>
+              {isAdmin && (
+                <Link
+                  href={`/players/${player.id}/edit`}
+                  className="inline-block mt-3 rounded-xl border border-green-700 px-4 py-2 font-semibold text-green-800"
+                >
+                  ✏ Ändern
+                </Link>
+              )}
             </div>
           );
         })}
