@@ -56,6 +56,7 @@ export default function ResultsPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [dayFinished, setDayFinished] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [awards, setAwards] = useState<Award[]>([]);
   const [picks, setPicks] = useState<Record<AwardType, string[]>>({
     crown: [],
@@ -118,11 +119,15 @@ export default function ResultsPage() {
       .select("award_type, team_id")
       .eq("match_day_id", matchDayId);
     const { data: adminFlag } = await supabase.rpc("is_admin");
+    const { data: editFlag } = await supabase.rpc("can_edit_match_day", {
+      p_match_day_id: matchDayId,
+    });
 
     setPlayDate(md.play_date);
     setDayFinished(!!md.finished_at);
     setAwards((awardRows ?? []) as Award[]);
     setIsAdmin(adminFlag === true);
+    setCanEdit(editFlag === true || adminFlag === true);
     setTeams(teamRows ?? []);
     setGames(gameRows ?? []);
     setTeamPlayers(tpRows);
@@ -388,7 +393,17 @@ export default function ResultsPage() {
           </p>
         )}
 
-        {!manual && tie && dayFinished && (
+        {!manual && tie && dayFinished && !canEdit && (
+          <p className="text-amber-700 font-medium">
+            {allEqual
+              ? "Alle Teams gleichauf."
+              : "Gleichstand bei Punkten und Tordifferenz."}{" "}
+            Die Entscheidung von Hand trägt das Konto „Eintragen“ am Spieltag
+            oder ein Admin ein.
+          </p>
+        )}
+
+        {!manual && tie && dayFinished && canEdit && (
           <div className="mt-1">
             <p className="text-amber-700 font-medium mb-2">
               {allEqual
@@ -509,6 +524,27 @@ export default function ResultsPage() {
 
       {hasResults && (
         <>
+          {/* Auffälliger Hinweis: Entscheidung von Hand nötig */}
+          {dayFinished &&
+            ((!crownManual && (allEqual || crownTie)) ||
+              (!strichlManual && (allEqual || strichlTie))) && (
+              <section className="rounded-xl border-2 border-amber-500 bg-amber-50 p-5 mb-6">
+                <p className="font-bold text-amber-900">
+                  ⚠ Entscheidung nötig: Gleichstand
+                </p>
+                <p className="text-amber-900 text-sm mt-1">
+                  Bei{" "}
+                  {!crownManual && (allEqual || crownTie)
+                    ? !strichlManual && (allEqual || strichlTie)
+                      ? "Krone und Strichl"
+                      : "der Krone"
+                    : "dem Strichl"}{" "}
+                  haben Teams gleich viele Punkte und die gleiche Tordifferenz.
+                  Bitte unten festlegen, wer es bekommt.
+                </p>
+              </section>
+            )}
+
           {/* Hinweis bei unterschiedlicher Spielanzahl */}
           {unequalGames && (
             <section className="rounded-xl border border-amber-400 bg-amber-50 p-5 mb-6">

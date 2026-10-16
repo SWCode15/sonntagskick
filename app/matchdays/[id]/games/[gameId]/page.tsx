@@ -28,6 +28,7 @@ export default function LiveGamePage() {
   const [nextGameId, setNextGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -92,6 +93,10 @@ export default function LiveGamePage() {
     setTeamNumbers(numbers);
     setTeamNames(names);
     setNextGameId(next ? next.id : null);
+    const { data: editFlag } = await supabase.rpc("can_edit_match_day", {
+      p_match_day_id: matchDayId,
+    });
+    setCanEdit(editFlag === true);
     setLoading(false);
   }, [gameId, matchDayId]);
 
@@ -236,7 +241,7 @@ export default function LiveGamePage() {
             <div className="flex gap-3">
               <button
                 type="button"
-                disabled={busy || game.finished}
+                disabled={busy || game.finished || !canEdit}
                 onClick={() => changeGoal(side.key, 1)}
                 className="flex-1 h-28 rounded-xl bg-green-600 text-white text-4xl font-bold disabled:opacity-40"
               >
@@ -244,7 +249,7 @@ export default function LiveGamePage() {
               </button>
               <button
                 type="button"
-                disabled={busy || game.finished || side.goals === 0}
+                disabled={busy || game.finished || !canEdit || side.goals === 0}
                 onClick={() => changeGoal(side.key, -1)}
                 className="w-24 h-28 rounded-xl border border-gray-300 text-2xl font-bold text-gray-700 disabled:opacity-40"
               >
@@ -263,7 +268,14 @@ export default function LiveGamePage() {
           📊 Live-Tabelle
         </Link>
 
-        {!game.finished && !confirmFinish && (
+        {!canEdit && !game.finished && (
+          <p className="rounded-xl border border-gray-400 bg-white p-4 font-semibold text-gray-700">
+            👁 Nur ansehen. Eintragen ist mit diesem Zugang oder zu diesem
+            Zeitpunkt nicht möglich.
+          </p>
+        )}
+
+        {canEdit && !game.finished && !confirmFinish && (
           <button
             type="button"
             disabled={busy}
@@ -274,7 +286,7 @@ export default function LiveGamePage() {
           </button>
         )}
 
-        {!game.finished && confirmFinish && (
+        {canEdit && !game.finished && confirmFinish && (
           <div className="bg-white rounded-xl p-5 shadow">
             <p className="font-semibold mb-3">
               Endstand {game.goals_team_a} : {game.goals_team_b} bestätigen?

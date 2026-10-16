@@ -103,6 +103,7 @@ export default function GamesPage() {
   const [started, setStarted] = useState(false);
   const [dayFinished, setDayFinished] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -145,11 +146,15 @@ export default function GamesPage() {
       .order("game_number", { ascending: true, nullsFirst: false });
 
     const { data: adminFlag } = await supabase.rpc("is_admin");
+    const { data: editFlag } = await supabase.rpc("can_edit_match_day", {
+      p_match_day_id: matchDayId,
+    });
 
     setPlayDate(md.play_date);
     setStarted(!!md.started_at);
     setDayFinished(!!md.finished_at);
     setIsAdmin(adminFlag === true);
+    setCanEdit(editFlag === true);
     const teamIdList = (teamRows ?? []).map((t) => t.id);
     const names: Record<string, string[]> = {};
     if (teamIdList.length > 0) {
@@ -389,7 +394,7 @@ export default function GamesPage() {
   const nextOpenGame = [...games]
     .filter((g) => !g.finished)
     .sort((x, y) => (x.game_number ?? 0) - (y.game_number ?? 0))[0];
-  const standardActive = isThreeTeams && started && !dayFinished;
+  const standardActive = isThreeTeams && started && !dayFinished && canEdit;
   const standardStep: "first" | "wait" | "stayer" | null = !standardActive
     ? null
     : games.length === 0
@@ -455,6 +460,13 @@ export default function GamesPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {!canEdit && (
+        <p className="rounded-xl border border-gray-400 bg-white p-4 mb-4 font-semibold text-gray-700">
+          👁 Nur ansehen. Eintragen ist mit diesem Zugang oder zu diesem
+          Zeitpunkt nicht möglich.
+        </p>
       )}
 
       {/* Nächstes Spiel zählen */}
