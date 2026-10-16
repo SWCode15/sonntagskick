@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 // Festes Konto der Runde. Die Runde gibt nur das Passwort ein.
 // (Die E-Mail ist nur ein Kontoname und kein Geheimnis.)
 const RUNDE_EMAIL = "login@sonntagskick.app";
+// Festes Konto zum Eintragen am Spieltag (Passwort kennen nur wenige).
+const EINTRAGEN_EMAIL = "eintragen@sonntagskick.app";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,10 +42,18 @@ export default function LoginPage() {
     }
 
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    let { error } = await supabase.auth.signInWithPassword({
       email: adminMode ? email.trim() : RUNDE_EMAIL,
       password,
     });
+    // Kein Admin: stimmt das Passwort vielleicht für das Konto zum Eintragen?
+    if (error && !adminMode) {
+      const second = await supabase.auth.signInWithPassword({
+        email: EINTRAGEN_EMAIL,
+        password,
+      });
+      error = second.error;
+    }
     setBusy(false);
 
     if (error) {

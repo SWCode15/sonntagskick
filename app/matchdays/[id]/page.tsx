@@ -11,6 +11,7 @@ type MatchDay = {
   notes: string | null;
   started_at: string | null;
   finished_at: string | null;
+  entry_locked: boolean;
 };
 type GameRow = {
   id: string;
@@ -47,6 +48,8 @@ export default function MatchDayPage() {
   const [busyPlayerId, setBusyPlayerId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<"admin" | "writer" | "reader">("reader");
+  const [canEdit, setCanEdit] = useState(false);
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [starting, setStarting] = useState(false);
   const [gameRows, setGameRows] = useState<GameRow[]>([]);
@@ -58,7 +61,7 @@ export default function MatchDayPage() {
   const load = useCallback(async () => {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
-      .select("id, play_date, notes, started_at, finished_at")
+      .select("id, play_date, notes, started_at, finished_at, entry_locked")
       .eq("id", matchDayId)
       .single();
 
@@ -106,7 +109,15 @@ export default function MatchDayPage() {
       .eq("match_day_id", matchDayId);
 
     const { data: adminFlag } = await supabase.rpc("is_admin");
+    const { data: roleData } = await supabase.rpc("my_role");
+    const { data: editFlag } = await supabase.rpc("can_edit_match_day", {
+      p_match_day_id: matchDayId,
+    });
 
+    setRole(
+      roleData === "admin" || roleData === "writer" ? roleData : "reader"
+    );
+    setCanEdit(editFlag === true);
     setGameRows(gamesData ?? []);
     setAwardTypes((awardRows ?? []).map((a) => a.award_type as string));
     setIsAdmin(adminFlag === true);
@@ -125,7 +136,8 @@ export default function MatchDayPage() {
   // Nach dem Start ist die Zuordnung für alle außer Admins gesperrt
   const started = !!matchDay?.started_at;
   const dayFinished = !!matchDay?.finished_at;
-  const locked = started && !isAdmin;
+  // Gesperrt: kein Recht zum Eintragen oder nach dem Start (außer Admin)
+  const locked = !canEdit || (started && !isAdmin);
 
   const finishedCount = gameRows.filter((g) => g.finished).length;
   const inProgressCount = gameRows.filter(
@@ -288,6 +300,19 @@ export default function MatchDayPage() {
     router.push(`/matchdays/${matchDayId}/results`);
   }
 
+  async function toggleEntryLock() {
+    if (!matchDay) return;
+    setErrorMessage(null);
+    const { error } = await supabase
+      .from("match_days")
+      .update({ entry_locked: !matchDay.entry_locked })
+      .eq("id", matchDayId);
+    if (error) {
+      setErrorMessage(`Fehler: ${error.message}`);
+    }
+    await load();
+  }
+
   async function undoEnd() {
     setErrorMessage(null);
     // Entscheidungen bei Gleichstand gelten nur für den beendeten Stand
@@ -435,7 +460,7 @@ export default function MatchDayPage() {
           )}
 
           {/* Spieltag beenden (mit Kontrollfrage) */}
-          {!dayFinished && !showEndDialog && (
+          {canEdit && !dayFinished && !showEndDialog && (
             <button
               type="button"
               onClick={() => setShowEndDialog(true)}
@@ -445,7 +470,7 @@ export default function MatchDayPage() {
             </button>
           )}
 
-          {!dayFinished && showEndDialog && (
+          {canEdit && !dayFinished && showEndDialog && (
             <div className="rounded-xl border-2 border-amber-500 bg-white p-5">
               <p className="text-lg font-bold mb-2">
                 Spieltag wirklich beenden?
@@ -513,7 +538,7 @@ export default function MatchDayPage() {
         </div>
       ) : (
         <div className="mb-4">
-          {!showStartDialog && (
+          {canEdit && !showStartDialog && (
             <button
               type="button"
               onClick={() => setShowStartDialog(true)}
@@ -523,7 +548,7 @@ export default function MatchDayPage() {
             </button>
           )}
 
-          {showStartDialog && (
+          {canEdit && showStartDialog && (
             <div className="rounded-xl border-2 border-green-600 bg-white p-5">
               <p className="text-lg font-bold mb-2">
                 Spieltag wirklich starten?
@@ -648,6 +673,38 @@ export default function MatchDayPage() {
 
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">{errorMessage}</p>
+      )}
+
+      {/* Hinweis, wenn dieses Konto nichts eintragen darf */}
+      {!canEdit && (
+        <p className="rounded-xl border border-gray-400 bg-white p-4 mb-4 font-semibold text-gray-700">
+          {role === "reader"
+            ? "👁 Nur ansehen. Mit diesem Zugang kann nichts eingetragen werden."
+            : matchDay.entry_locked
+            ? "🔒 Eintragen ist für diesen Spieltag gesperrt."
+            : "📅 Eintragen ist nur am Tag des Spieltags möglich."}
+        </p>
+      )}
+
+      {/* Admin: Eintragen für diesen Spieltag sperren oder freigeben */}
+      {isAdmin && (
+        <div className="rounded-xl bg-white p-4 mb-4 shadow">
+          <p className="text-sm text-gray-600 mb-2">
+            Admin: Das Konto „Eintragen“ darf am Spieltag selbst eintragen.{" "}
+            {matchDay.entry_locked
+              ? "Derzeit ist es für diesen Spieltag gesperrt."
+              : "Derzeit ist es nicht gesperrt."}
+          </p>
+          <button
+            type="button"
+            onClick={toggleEntryLock}
+            className="rounded-xl border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700"
+          >
+            {matchDay.entry_locked
+              ? "🔓 Eintragen freigeben"
+              : "🔒 Eintragen sperren"}
+          </button>
+        </div>
       )}
 
       {/* Spielerliste */}
