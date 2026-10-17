@@ -13,6 +13,8 @@ type MatchDay = {
   finished_at: string | null;
   entry_locked: boolean;
   seasons?: { season_name: string } | { season_name: string }[] | null;
+  excluded_type: "not_played" | "not_rated" | null;
+  excluded_reason: string | null;
 };
 type GameRow = {
   id: string;
@@ -63,7 +65,7 @@ export default function MatchDayPage() {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
       .select(
-        "id, play_date, notes, started_at, finished_at, entry_locked, seasons(season_name)"
+        "id, play_date, notes, started_at, finished_at, entry_locked, excluded_type, excluded_reason, seasons(season_name)"
       )
       .eq("id", matchDayId)
       .single();
@@ -411,6 +413,18 @@ export default function MatchDayPage() {
       })()}
       {matchDay.notes && <p className="text-gray-600 mb-4">{matchDay.notes}</p>}
 
+      {matchDay.excluded_type && (
+        <div className="rounded-xl border-2 border-red-400 bg-red-50 p-4 mb-4 text-red-900">
+          <p className="font-bold">
+            🚫{" "}
+            {matchDay.excluded_type === "not_played"
+              ? "Spieltag nicht stattgefunden"
+              : "Spieltag nicht gewertet"}
+          </p>
+          <p className="mt-1">Begründung: {matchDay.excluded_reason}</p>
+        </div>
+      )}
+
       {/* Status des Spieltags */}
       {started ? (
         <div className="space-y-3 mb-4">
@@ -700,6 +714,12 @@ export default function MatchDayPage() {
       {/* Admin: Eintragen für diesen Spieltag sperren oder freigeben */}
       {isAdmin && (
         <div className="rounded-xl bg-white p-4 mb-4 shadow">
+          <Link
+            href={`/matchdays/${matchDayId}/edit`}
+            className="inline-block rounded-xl border border-green-700 bg-white px-4 py-2 font-semibold text-green-800 mb-3"
+          >
+            ⚙ Spieltag verwalten (bearbeiten, nicht gewertet, löschen)
+          </Link>
           <p className="text-sm text-gray-600 mb-2">
             Admin: Das Konto „Eintragen“ darf am Spieltag selbst eintragen.{" "}
             {matchDay.entry_locked

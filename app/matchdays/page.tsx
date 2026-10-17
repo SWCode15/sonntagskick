@@ -9,6 +9,7 @@ type MatchDayRow = {
   play_date: string;
   notes: string | null;
   season_id: string;
+  excluded_type: "not_played" | "not_rated" | null;
   teams: { id: string }[];
 };
 
@@ -80,6 +81,14 @@ function DayCard({
           <span className="text-gray-500 font-normal"> · Saison {seasonName}</span>
         )}
       </p>
+      {matchDay.excluded_type && (
+        <p className="mt-1 inline-block rounded-lg bg-red-100 px-2 py-1 text-sm font-semibold text-red-800">
+          🚫{" "}
+          {matchDay.excluded_type === "not_played"
+            ? "nicht stattgefunden"
+            : "nicht gewertet"}
+        </p>
+      )}
       {matchDay.notes && <p className="text-gray-600 mt-1">{matchDay.notes}</p>}
     </Link>
   );
@@ -101,7 +110,7 @@ export default function MatchDaysPage() {
     async function load() {
       const { data, error } = await supabase
         .from("match_days")
-        .select("id, play_date, notes, season_id, teams(id)")
+        .select("id, play_date, notes, season_id, excluded_type, teams(id)")
         .order("play_date", { ascending: true });
 
       const { data: seasonRows } = await supabase
