@@ -42,6 +42,13 @@ const TYPE_LABELS: Record<string, string> = {
   gast: "Gast",
 };
 
+const FILTERS = [
+  { value: "alle", label: "Alle" },
+  { value: "stamm", label: "Stamm" },
+  { value: "springer", label: "Springer" },
+  { value: "gast", label: "Gast" },
+];
+
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -50,6 +57,7 @@ export default function PlayersPage() {
     new Map()
   );
   const [typesLoaded, setTypesLoaded] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("alle");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [canAdd, setCanAdd] = useState(false);
@@ -126,6 +134,12 @@ export default function PlayersPage() {
     ? players.filter((p) => typeByPlayer.has(p.id))
     : [];
 
+  // Nach Typ filtern (Anzahl gilt für die gewählte Saison)
+  const filteredPlayers =
+    typeFilter === "alle"
+      ? visiblePlayers
+      : visiblePlayers.filter((p) => typeByPlayer.get(p.id) === typeFilter);
+
   return (
     <main className="min-h-screen bg-green-100 p-6">
       <h1 className="text-3xl font-bold mb-2">Spieler</h1>
@@ -179,6 +193,32 @@ export default function PlayersPage() {
         </Link>
       )}
 
+      <div className="flex flex-wrap gap-2 mb-6">
+        {FILTERS.map((f) => {
+          const count =
+            f.value === "alle"
+              ? visiblePlayers.length
+              : visiblePlayers.filter(
+                  (p) => typeByPlayer.get(p.id) === f.value
+                ).length;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setTypeFilter(f.value)}
+              className={
+                "rounded-xl border px-4 py-2 font-semibold " +
+                (typeFilter === f.value
+                  ? "bg-green-600 border-green-600 text-white"
+                  : "bg-white border-gray-300 text-gray-800")
+              }
+            >
+              {f.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">
           Fehler beim Laden: {errorMessage}
@@ -192,7 +232,7 @@ export default function PlayersPage() {
       )}
 
       <div className="space-y-4">
-        {visiblePlayers.map((player) => {
+        {filteredPlayers.map((player) => {
           const type = typeByPlayer.get(player.id);
           return (
             <div key={player.id} className="bg-white rounded-xl p-6 shadow">
