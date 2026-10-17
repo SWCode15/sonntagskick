@@ -88,6 +88,15 @@ export default function PlayersPage() {
         </Link>
       )}
 
+      {isAdmin && (
+        <Link
+          href="/players/merge"
+          className="inline-block rounded-xl border border-green-700 bg-white px-6 py-4 text-lg font-semibold text-green-800 mb-6 ml-0 sm:ml-3"
+        >
+          🔀 Spieler zusammenführen
+        </Link>
+      )}
+
       {errorMessage && (
         <p className="text-red-600 font-medium mb-4">
           Fehler beim Laden: {errorMessage}
