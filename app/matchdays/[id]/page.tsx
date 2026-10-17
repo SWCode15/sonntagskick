@@ -12,6 +12,7 @@ type MatchDay = {
   started_at: string | null;
   finished_at: string | null;
   entry_locked: boolean;
+  seasons?: { season_name: string } | { season_name: string }[] | null;
 };
 type GameRow = {
   id: string;
@@ -61,7 +62,9 @@ export default function MatchDayPage() {
   const load = useCallback(async () => {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
-      .select("id, play_date, notes, started_at, finished_at, entry_locked")
+      .select(
+        "id, play_date, notes, started_at, finished_at, entry_locked, seasons(season_name)"
+      )
       .eq("id", matchDayId)
       .single();
 
@@ -398,6 +401,14 @@ export default function MatchDayPage() {
       <h1 className="text-3xl font-bold mt-2 mb-1">
         {formatDate(matchDay.play_date)}
       </h1>
+      {(() => {
+        const s = Array.isArray(matchDay.seasons)
+          ? matchDay.seasons[0]
+          : matchDay.seasons;
+        return s ? (
+          <p className="text-sm text-gray-600 mb-1">Saison {s.season_name}</p>
+        ) : null;
+      })()}
       {matchDay.notes && <p className="text-gray-600 mb-4">{matchDay.notes}</p>}
 
       {/* Status des Spieltags */}

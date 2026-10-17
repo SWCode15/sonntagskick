@@ -11,6 +11,31 @@ type Player = {
   active: boolean;
 };
 
+type Season = {
+  id: string;
+  season_name: string;
+  start_date: string;
+  end_date: string;
+};
+
+const SEASON_KEY = "sk_season";
+
+function readSavedSeason(): string | null {
+  try {
+    return localStorage.getItem(SEASON_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveSeason(value: string) {
+  try {
+    localStorage.setItem(SEASON_KEY, value);
+  } catch {
+    // ohne Speicher funktioniert die Seite trotzdem
+  }
+}
+
 const TYPE_LABELS: Record<string, string> = {
   stamm: "Stammspieler",
   springer: "Springer",
@@ -19,7 +44,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [seasonName, setSeasonName] = useState<string | null>(null);
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [seasonId, setSeasonId] = useState<string | null>(null);
   const [typeByPlayer, setTypeByPlayer] = useState<Map<string, string>>(
     new Map()
   );
@@ -46,38 +72,75 @@ export default function PlayersPage() {
         return;
       }
 
-      // Aktuelle Saison = die mit dem neuesten Startdatum
-      const { data: season } = await supabase
+      const { data: seasonRows } = await supabase
         .from("seasons")
-        .select("id, season_name")
-        .order("start_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .select("id, season_name, start_date, end_date")
+        .order("start_date", { ascending: false });
+      const list = (seasonRows ?? []) as Season[];
 
-      const types = new Map<string, string>();
-      if (season) {
-        const { data: seasonPlayers } = await supabase
-          .from("season_players")
-          .select("player_id, player_type")
-          .eq("season_id", season.id);
+      // Vorauswahl: gemerkte Saison, sonst die Saison von heute, sonst die neueste
+      const saved = readSavedSeason();
+      const todayStr = new Date().toLocaleDateString("sv-SE", {
+        timeZone: "Europe/Vienna",
+      });
+      const current =
+        list.find((s) => s.start_date <= todayStr && todayStr <= s.end_date) ??
+        list[0];
+      const chosen = list.some((s) => s.id === saved)
+        ? (saved as string)
+        : current?.id ?? null;
 
-        seasonPlayers?.forEach((sp) => {
-          types.set(sp.player_id, sp.player_type);
-        });
-      }
-
-      setPlayers(playerRows ?? []);
-      setSeasonName(season ? season.season_name : null);
-      setTypeByPlayer(types);
+      setPlayers((playerRows ?? []) as Player[]);
+      setSeasons(list);
+      setSeasonId(chosen);
       setLoading(false);
     }
     load();
   }, []);
 
+  // Typen der gewählten Saison laden
+  useEffect(() => {
+    async function loadTypes() {
+      const types = new Map<string, string>();
+      if (seasonId) {
+        const { data: seasonPlayers } = await supabase
+          .from("season_players")
+          .select("player_id, player_type")
+          .eq("season_id", seasonId);
+        seasonPlayers?.forEach((sp) => {
+          types.set(sp.player_id, sp.player_type);
+        });
+      }
+      setTypeByPlayer(types);
+    }
+    loadTypes();
+  }, [seasonId]);
+
   return (
     <main className="min-h-screen bg-green-100 p-6">
       <h1 className="text-3xl font-bold mb-2">Spieler</h1>
-      {seasonName && <p className="text-gray-600 mb-6">Saison {seasonName}</p>}
+      {seasons.length > 0 && (
+        <div className="mb-6">
+          <label htmlFor="season" className="block font-semibold mb-1">
+            Saison (für den Typ)
+          </label>
+          <select
+            id="season"
+            value={seasonId ?? ""}
+            onChange={(e) => {
+              setSeasonId(e.target.value);
+              saveSeason(e.target.value);
+            }}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg"
+          >
+            {seasons.map((s) => (
+              <option key={s.id} value={s.id}>
+                Saison {s.season_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {canAdd && (
         <Link

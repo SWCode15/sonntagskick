@@ -8,8 +8,35 @@ type MatchDayRow = {
   id: string;
   play_date: string;
   notes: string | null;
+  season_id: string;
   teams: { id: string }[];
 };
+
+type Season = {
+  id: string;
+  season_name: string;
+  start_date: string;
+  end_date: string;
+};
+
+const SEASON_KEY = "sk_season";
+const ALL = "alle";
+
+function readSavedSeason(): string | null {
+  try {
+    return localStorage.getItem(SEASON_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveSeason(value: string) {
+  try {
+    localStorage.setItem(SEASON_KEY, value);
+  } catch {
+    // ohne Speicher funktioniert die Seite trotzdem
+  }
+}
 
 function formatDate(isoDate: string) {
   // isoDate = "2026-10-11" -> "So., 11.10.2026"
@@ -30,9 +57,11 @@ function todayVienna() {
 function DayCard({
   matchDay,
   size,
+  seasonName,
 }: {
   matchDay: MatchDayRow;
   size: "big" | "normal";
+  seasonName?: string;
 }) {
   return (
     <Link
@@ -47,6 +76,9 @@ function DayCard({
       </p>
       <p className="text-green-700 font-medium mt-1">
         {matchDay.teams.length} Teams
+        {seasonName && (
+          <span className="text-gray-500 font-normal"> · Saison {seasonName}</span>
+        )}
       </p>
       {matchDay.notes && <p className="text-gray-600 mt-1">{matchDay.notes}</p>}
     </Link>
@@ -58,6 +90,8 @@ export default function MatchDaysPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [selected, setSelected] = useState<string>(ALL);
 
   useEffect(() => {
     supabase.rpc("is_admin").then(({ data }) => setIsAdmin(data === true));
@@ -67,8 +101,27 @@ export default function MatchDaysPage() {
     async function load() {
       const { data, error } = await supabase
         .from("match_days")
-        .select("id, play_date, notes, teams(id)")
+        .select("id, play_date, notes, season_id, teams(id)")
         .order("play_date", { ascending: true });
+
+      const { data: seasonRows } = await supabase
+        .from("seasons")
+        .select("id, season_name, start_date, end_date")
+        .order("start_date", { ascending: false });
+      const seasonList = (seasonRows ?? []) as Season[];
+      setSeasons(seasonList);
+
+      // Vorauswahl: gemerkte Saison, sonst die Saison von heute, sonst die neueste
+      const saved = readSavedSeason();
+      const todayStr = todayVienna();
+      const current =
+        seasonList.find((s) => s.start_date <= todayStr && todayStr <= s.end_date) ??
+        seasonList[0];
+      if (saved === ALL || seasonList.some((s) => s.id === saved)) {
+        setSelected(saved as string);
+      } else if (current) {
+        setSelected(current.id);
+      }
 
       if (error) {
         setErrorMessage(error.message);
@@ -82,16 +135,48 @@ export default function MatchDaysPage() {
 
   const today = todayVienna();
 
+  const seasonName = (id: string) =>
+    seasons.find((s) => s.id === id)?.season_name;
+  const shown =
+    selected === ALL ? matchDays : matchDays.filter((m) => m.season_id === selected);
+  // Bei „Alle Saisons“ steht die Saison bei jedem Spieltag dabei
+  const nameFor = (m: MatchDayRow) =>
+    selected === ALL ? seasonName(m.season_id) : undefined;
+
   // Heute und Zukunft: aufsteigend (nächster zuerst). Vergangenheit: absteigend.
-  const upcoming = matchDays.filter((m) => m.play_date >= today);
-  const past = matchDays.filter((m) => m.play_date < today).reverse();
+  const upcoming = shown.filter((m) => m.play_date >= today);
+  const past = shown.filter((m) => m.play_date < today).reverse();
 
   const next = upcoming[0];
   const later = upcoming.slice(1);
 
   return (
     <main className="min-h-screen bg-green-100 p-6">
-      <h1 className="text-3xl font-bold mb-6">Spieltage</h1>
+      <h1 className="text-3xl font-bold mb-4">Spieltage</h1>
+
+      {seasons.length > 0 && (
+        <div className="mb-6">
+          <label htmlFor="season" className="block font-semibold mb-1">
+            Saison
+          </label>
+          <select
+            id="season"
+            value={selected}
+            onChange={(e) => {
+              setSelected(e.target.value);
+              saveSeason(e.target.value);
+            }}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg"
+          >
+            {seasons.map((s) => (
+              <option key={s.id} value={s.id}>
+                Saison {s.season_name}
+              </option>
+            ))}
+            <option value={ALL}>Alle Saisons</option>
+          </select>
+        </div>
+      )}
 
       {isAdmin && (
         <Link
@@ -110,8 +195,12 @@ export default function MatchDaysPage() {
 
       {loading && <p className="text-gray-600">Lädt…</p>}
 
-      {!loading && matchDays.length === 0 && !errorMessage && (
-        <p className="text-gray-600">Noch kein Spieltag angelegt.</p>
+      {!loading && shown.length === 0 && !errorMessage && (
+        <p className="text-gray-600">
+          {matchDays.length === 0
+            ? "Noch kein Spieltag angelegt."
+            : "In dieser Saison gibt es keinen Spieltag."}
+        </p>
       )}
 
       {next && (
@@ -119,7 +208,7 @@ export default function MatchDaysPage() {
           <h2 className="font-semibold text-green-900 mb-2">
             {next.play_date === today ? "⚽ Heute" : "⚽ Nächster Spieltag"}
           </h2>
-          <DayCard matchDay={next} size="big" />
+          <DayCard matchDay={next} size="big" seasonName={nameFor(next)} />
         </section>
       )}
 
@@ -130,7 +219,12 @@ export default function MatchDaysPage() {
           </h2>
           <div className="space-y-3">
             {later.map((m) => (
-              <DayCard key={m.id} matchDay={m} size="normal" />
+              <DayCard
+                key={m.id}
+                matchDay={m}
+                size="normal"
+                seasonName={nameFor(m)}
+              />
             ))}
           </div>
         </section>
@@ -143,7 +237,12 @@ export default function MatchDaysPage() {
           </h2>
           <div className="space-y-3">
             {past.map((m) => (
-              <DayCard key={m.id} matchDay={m} size="normal" />
+              <DayCard
+                key={m.id}
+                matchDay={m}
+                size="normal"
+                seasonName={nameFor(m)}
+              />
             ))}
           </div>
         </section>
