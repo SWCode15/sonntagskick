@@ -1,6 +1,6 @@
 # ⚽ Sonntagskick – Projektdokumentation
 
-**Stand:** 17.10.2026 · **Version des Dokuments:** 10
+**Stand:** 17.10.2026 · **Version des Dokuments:** 11
 **Zweck:** Single Source of Truth. Dieses Dokument in jeden neuen Chat (Claude, Copilot, ChatGPT) hochladen, dann muss nichts neu erklärt werden. Nach jedem abgeschlossenen Schritt wird es aktualisiert (siehe Änderungsprotokoll am Ende).
 **Hinweis zum Dateinamen:** Die Datei heißt im Repo weiterhin `sonntagskick-projektdokumentation111026_V2.md` (nicht umbenennen, damit die Verbindung zum Claude-Projekt stabil bleibt). Die echte Version steht oben im Dokument.
 
@@ -32,7 +32,7 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 - Ausnahmen müssen möglich sein: **2 Teams** (z. B. 5 gegen 5), **4 Teams** (noch nie vorgekommen), **ein Team mit einem Spieler mehr**, außerdem ein **offener Modus** mit frei wählbarer Teamanzahl (2 bis 8).
 - **Jeder Spieler hat pro Spieltag genau ein Team.** Alle Ergebnisse dieses Teams zählen für ihn. Fällt jemand zwischendurch aus (Verletzung), wird das im Kommentar des Spieltags festgehalten.
 - Teams heißen immer **Team 1, Team 2, Team 3, ...** (nicht A/B).
-- Alle Stammspieler stehen in der Liste; „nicht da“ = kein Team. Nachzügler gibt es nicht, man weiß vorher, in welchem Team jemand spielt.
+- Ablauf am Spieltag in zwei Schritten: **① Anwesenheit** (wer ist heute da, Tipp auf den Spieler) und **② Teams** (nur Anwesende; von Hand zuordnen oder **🎲 Teams auslosen**). Nicht anwesend = kein Team. Nachzügler gibt es nicht, man weiß vorher, in welchem Team jemand spielt.
 
 ### 2.4 Runden und Spiele
 - Ein **Spiel** dauert **7 Minuten**.
@@ -86,7 +86,7 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 ### 3.2 Spätere Updates (nicht jetzt bauen, aber nicht verbauen)
 - Torschützen pro Tor (eigene Tabelle, für echten „Torgefährlichsten“)
 - 7-Minuten-Stoppuhr mit Signal
-- Automatische Auslosung per Knopfdruck (mit Tauschen), geringe Priorität, siehe 9.1
+- ~~Automatische Auslosung per Knopfdruck~~: erledigt 17.10.2026 (rein zufällig, siehe 5.1)
 - Weitere Auswertungen
 
 ---
@@ -153,7 +153,7 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 |---|---|---|
 | `/login` | `app/login/page.tsx` | Anmeldung mit drei Knöpfen (Leser, Eintragen, Admin); Benutzername fest bei Leser/Eintragen, E-Mail bei Admin; dazu das Passwort |
 | `/` | `app/page.tsx` | Dashboard mit Karten (Spieltage, Spieler; Statistiken und Strichl-Tabelle noch Platzhalter) |
-| `/players` | `app/players/page.tsx` | Spielerliste mit Typ der aktuellen Saison; „➕ Spieler hinzufügen“ nur bei Berechtigung |
+| `/players` | `app/players/page.tsx` | Spielerliste mit Typ der gewählten Saison, Filter Alle/Stamm/Springer/Gast mit Anzahl; „➕ Spieler hinzufügen“ nur bei Berechtigung |
 | `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ); Admin oder Eintragen am Spieltag; gleicher Name/Spitzname wird abgelehnt, bei ähnlichem Namen gelbe Warnung mit „Trotzdem anlegen“ |
 | `/log` | `app/log/page.tsx` | Änderungsprotokoll (nur Admins), Filter, 50 Einträge pro Seite |
 | `/seasons` | `app/seasons/page.tsx` | Saisons verwalten (nur Admins): anlegen (Prüfung auf Überschneidung), Spieler samt Typ aus einer Saison übernehmen |
@@ -162,7 +162,7 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 | `/players/[id]/edit` | `app/players/[id]/edit/page.tsx` | Spieler ändern (Name, Spitzname, Typ in der aktuellen Saison, Aktiv/Inaktiv); nur Admins |
 | `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“; „➕ Neuer Spieltag“ nur für Admins |
 | `/matchdays/new` | `app/matchdays/new/page.tsx` | Spieltag anlegen (Datum, Modus, Kommentar), nur Admins |
-| `/matchdays/[id]` | `app/matchdays/[id]/page.tsx` | Anwesenheit und Teamzuordnung; „▶ Spieltag starten“ mit Kontrolldialog (Teamgrößen, gelber Hinweis bei Teams ohne 4 Spieler, „Nicht da: …“); „🏁 Spieltag beenden“ mit Kontrolldialog; danach Zuordnung gesperrt; Admin: „Beenden rückgängig machen“, „Spieltag wieder öffnen“; Knöpfe zu Spielen (erst nach Start) und Auswertung |
+| `/matchdays/[id]` | `app/matchdays/[id]/page.tsx` | Reiter **① Anwesenheit** (Spieler antippen, Filter nach Typ der Saison, „➕ Neuen Spieler anlegen“) und **② Teams** (nur Anwesende, Teamknöpfe, zweiter Tipp auf dasselbe Team nimmt nur aus dem Team, „🎲 Teams auslosen“ rein zufällig mit Rückfrage); Spieler alphabetisch nach Spitzname/Name; „▶ Spieltag starten“ mit Kontrolldialog (Teamgrößen, gelber Hinweis bei Teams ohne 4 Spieler, „Nicht da: …“); „🏁 Spieltag beenden“ mit Kontrolldialog; danach Zuordnung gesperrt; Admin: „Beenden rückgängig machen“, „Spieltag wieder öffnen“; Knöpfe zu Spielen (erst nach Start) und Auswertung |
 | `/matchdays/[id]/games` | `app/matchdays/[id]/games/page.tsx` | Spieleübersicht: Kasten „Teams“ mit Spitznamen, Button „📊 Live-Tabelle“, großer Button „▶ Nächstes Spiel zählen“, Spiele nach Runden. Standard-Ablauf bei 3 Teams (erstes Spiel → Bleiber nach Spiel 1 → Bestätigung); Admin-Werkzeuge (Runde ergänzen, letzte Runde entfernen, einzelnes Spiel, Spiel entfernen) |
 | `/matchdays/[id]/games/[gameId]` | `app/matchdays/[id]/games/[gameId]/page.tsx` | Live-Torezählen mit Spitznamen, Button zur Live-Tabelle; nach „Spiel beenden“ zurück zur Spieleübersicht |
 | `/matchdays/[id]/table` | `app/matchdays/[id]/table/page.tsx` | Live-Tabelle (aktualisiert alle 5 s) |
@@ -317,7 +317,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 0a. ~~Live-Tabelle inkl. laufendes Spiel~~: **erledigt 16.10.2026** (Umschalter „Nur beendete“ / „Inkl. laufendes“).
 0b. ~~Admin: Spieler ändern~~: **erledigt 16.10.2026** (Seite `/players/[id]/edit`).
 0c. ~~Doppelte Spieler vermeiden~~: **erledigt 16.10.2026** (Sperre v9 und Warnung bei ähnlichen Namen). Spieler zusammenführen: **erledigt 17.10.2026** (Skript v10, Seite `/players/merge`, getestet).
-0c. **Neues Feature, geringe Priorität: Auslosung der Teams per Knopfdruck** (zufällig, mit Tauschen; siehe 3.2). Beachten: gleich große Teams (normal 4), Nicht-Anwesende ausnehmen, Ergebnis bestätigen, dann erst zuordnen.
+0d. ~~Auslosung der Teams~~: **erledigt 17.10.2026** (Knopf „🎲 Teams auslosen“ bei ② Teams, rein zufällig, Teams höchstens um einen Spieler verschieden groß, Rückfrage bei schon vorhandener Zuordnung, nur vor dem Start; Handzuordnung bleibt möglich).
 1. ~~Erinnerung Team 4 / „Spieltag bearbeiten“~~: **erledigt 17.10.2026** (Teamanzahl und Datum änderbar, Seite `/matchdays/[id]/edit`). Offen: Modus-Wechsel bei laufendem Spieltag, Runden bei 2 Teams erweitern (niedrige Priorität).
 
 ### 9.2 Weitere offene Punkte
@@ -349,3 +349,4 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 17.10.2026 | Spielerliste mit Testspielern geleert und neu aufgebaut; Skript v9 (eindeutige Namen), Warnung bei ähnlichen Namen beim Anlegen |
 | 17.10.2026 (vormittags) | Admin: Spieler zusammenführen (Skript v10, Seite `/players/merge`, Knopf in der Spielerliste) |
 | 17.10.2026 (mittags) | Saisons anzeigen und wählen, Seite `/seasons`; Spieltag verwalten (bearbeiten, nicht stattgefunden/nicht gewertet mit Begründung, löschen; Skript v11); Änderungsprotokoll (Skript v12, Seite `/log`); Version 10 |
+| 17.10.2026 (nachmittags) | Spieltag in zwei Schritten (① Anwesenheit, ② Teams), Typ-Filter Stamm/Springer/Gast mit Anzahl (Spieltag und Spielerliste), Spieler alphabetisch, „nicht da“-Knopf bei Teams entfernt, zufällige Auslosung der Teams; keine Datenbankänderung; Version 11 |
