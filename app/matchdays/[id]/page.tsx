@@ -157,7 +157,13 @@ export default function MatchDayPage() {
     setIsAdmin(adminFlag === true);
     setMatchDay(md);
     setTeams(teamRows ?? []);
-    setPlayers(playerRows ?? []);
+    // Alphabetisch nach Spitzname (sonst Name)
+    const sortedPlayers = [...(playerRows ?? [])].sort((a, b) =>
+      (a.nickname ?? a.name).localeCompare(b.nickname ?? b.name, "de", {
+        sensitivity: "base",
+      })
+    );
+    setPlayers(sortedPlayers);
     setTypeByPlayer(types);
     setPresentIds(new Set((presentRows ?? []).map((r) => r.player_id)));
     setTeamPlayers(teamPlayerRows);
