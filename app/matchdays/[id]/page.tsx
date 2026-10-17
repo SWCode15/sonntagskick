@@ -9,6 +9,7 @@ type MatchDay = {
   id: string;
   play_date: string;
   notes: string | null;
+  season_id: string;
   started_at: string | null;
   finished_at: string | null;
   entry_locked: boolean;
@@ -27,6 +28,18 @@ type GameRow = {
 type Team = { id: string; team_number: number };
 type Player = { id: string; name: string; nickname: string | null };
 type TeamPlayer = { team_id: string; player_id: string };
+
+const TYPE_LABELS: Record<string, string> = {
+  stamm: "Stammspieler",
+  springer: "Springer",
+  gast: "Gast",
+};
+const FILTERS = [
+  { value: "alle", label: "Alle" },
+  { value: "stamm", label: "Stamm" },
+  { value: "springer", label: "Springer" },
+  { value: "gast", label: "Gast" },
+];
 
 function formatDate(isoDate: string) {
   const [year, month, day] = isoDate.split("-").map(Number);
@@ -57,6 +70,11 @@ export default function MatchDayPage() {
   const [starting, setStarting] = useState(false);
   const [gameRows, setGameRows] = useState<GameRow[]>([]);
   const [awardTypes, setAwardTypes] = useState<string[]>([]);
+  // Typ (Stamm/Springer/Gast) der Spieler in der Saison dieses Spieltags
+  const [typeByPlayer, setTypeByPlayer] = useState<Map<string, string>>(
+    new Map()
+  );
+  const [typeFilter, setTypeFilter] = useState("alle");
   const router = useRouter();
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [ending, setEnding] = useState(false);
@@ -65,7 +83,7 @@ export default function MatchDayPage() {
     const { data: md, error: mdError } = await supabase
       .from("match_days")
       .select(
-        "id, play_date, notes, started_at, finished_at, entry_locked, excluded_type, excluded_reason, seasons(season_name)"
+        "id, play_date, notes, season_id, started_at, finished_at, entry_locked, excluded_type, excluded_reason, seasons(season_name)"
       )
       .eq("id", matchDayId)
       .single();
@@ -87,6 +105,15 @@ export default function MatchDayPage() {
       .select("id, name, nickname")
       .eq("active", true)
       .order("created_at", { ascending: true });
+
+    const { data: seasonPlayerRows } = await supabase
+      .from("season_players")
+      .select("player_id, player_type")
+      .eq("season_id", md.season_id);
+    const types = new Map<string, string>();
+    (seasonPlayerRows ?? []).forEach((sp) =>
+      types.set(sp.player_id as string, sp.player_type as string)
+    );
 
     const { data: presentRows } = await supabase
       .from("match_day_players")
@@ -129,6 +156,7 @@ export default function MatchDayPage() {
     setMatchDay(md);
     setTeams(teamRows ?? []);
     setPlayers(playerRows ?? []);
+    setTypeByPlayer(types);
     setPresentIds(new Set((presentRows ?? []).map((r) => r.player_id)));
     setTeamPlayers(teamPlayerRows);
     setLoading(false);
@@ -750,9 +778,40 @@ export default function MatchDayPage() {
         </p>
       )}
 
+      {/* Filter nach Spielertyp (Typ der Saison dieses Spieltags) */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {FILTERS.map((f) => {
+          const count =
+            f.value === "alle"
+              ? players.length
+              : players.filter((p) => typeByPlayer.get(p.id) === f.value)
+                  .length;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setTypeFilter(f.value)}
+              className={
+                "rounded-xl border px-4 py-2 font-semibold " +
+                (typeFilter === f.value
+                  ? "bg-green-600 border-green-600 text-white"
+                  : "bg-white border-gray-300 text-gray-800")
+              }
+            >
+              {f.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Spielerliste */}
       <div className="space-y-4">
-        {players.map((player) => {
+        {players
+          .filter(
+            (p) =>
+              typeFilter === "alle" || typeByPlayer.get(p.id) === typeFilter
+          )
+          .map((player) => {
           const currentTeamId = teamOfPlayer.get(player.id);
           const present = presentIds.has(player.id);
           const busy = busyPlayerId === player.id;
@@ -766,8 +825,14 @@ export default function MatchDayPage() {
                 {player.nickname ?? player.name}
               </p>
               {player.nickname && (
-                <p className="text-gray-600 mb-2">{player.name}</p>
+                <p className="text-gray-600">{player.name}</p>
               )}
+              <p className="text-sm text-green-700 font-medium mb-2">
+                {typeByPlayer.has(player.id)
+                  ? TYPE_LABELS[typeByPlayer.get(player.id) as string] ??
+                    typeByPlayer.get(player.id)
+                  : "Kein Typ in dieser Saison"}
+              </p>
 
               <div className="flex flex-wrap gap-2 mt-2">
                 {teams.map((team) => (
