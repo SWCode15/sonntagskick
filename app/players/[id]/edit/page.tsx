@@ -22,8 +22,10 @@ export default function EditPlayerPage() {
   const [nickname, setNickname] = useState("");
   const [active, setActive] = useState(true);
   const [playerType, setPlayerType] = useState<string | null>(null);
+  const [seasons, setSeasons] = useState<
+    { id: string; season_name: string; start_date: string; end_date: string }[]
+  >([]);
   const [seasonId, setSeasonId] = useState<string | null>(null);
-  const [seasonName, setSeasonName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -52,28 +54,53 @@ export default function EditPlayerPage() {
       setNickname(player.nickname ?? "");
       setActive(player.active);
 
-      const { data: season } = await supabase
+      const { data: seasonRows } = await supabase
         .from("seasons")
-        .select("id, season_name")
-        .order("start_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .select("id, season_name, start_date, end_date")
+        .order("start_date", { ascending: false });
+      const list = (seasonRows ?? []) as {
+        id: string;
+        season_name: string;
+        start_date: string;
+        end_date: string;
+      }[];
+      setSeasons(list);
 
-      if (season) {
-        setSeasonId(season.id);
-        setSeasonName(season.season_name);
-        const { data: sp } = await supabase
-          .from("season_players")
-          .select("player_type")
-          .eq("season_id", season.id)
-          .eq("player_id", playerId)
-          .maybeSingle();
-        setPlayerType(sp ? sp.player_type : null);
+      // Vorauswahl: gemerkte Saison, sonst die Saison von heute, sonst die neueste
+      let saved: string | null = null;
+      try {
+        saved = localStorage.getItem("sk_season");
+      } catch {
+        saved = null;
       }
+      const todayStr = new Date().toLocaleDateString("sv-SE", {
+        timeZone: "Europe/Vienna",
+      });
+      const current =
+        list.find((s) => s.start_date <= todayStr && todayStr <= s.end_date) ??
+        list[0];
+      setSeasonId(
+        list.some((s) => s.id === saved) ? (saved as string) : current?.id ?? null
+      );
       setLoading(false);
     }
     load();
   }, [playerId]);
+
+  // Typ für die gewählte Saison laden
+  useEffect(() => {
+    async function loadType() {
+      if (!seasonId) return;
+      const { data: sp } = await supabase
+        .from("season_players")
+        .select("player_type")
+        .eq("season_id", seasonId)
+        .eq("player_id", playerId)
+        .maybeSingle();
+      setPlayerType(sp ? sp.player_type : null);
+    }
+    loadType();
+  }, [seasonId, playerId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -201,9 +228,26 @@ export default function EditPlayerPage() {
           </div>
 
           <div>
-            <span className="block font-semibold mb-2">
-              Typ in Saison {seasonName ?? ""}
-            </span>
+            {seasons.length > 1 ? (
+              <div className="mb-3">
+                <label htmlFor="season" className="block font-semibold mb-2">
+                  Saison
+                </label>
+                <select
+                  id="season"
+                  value={seasonId ?? ""}
+                  onChange={(e) => setSeasonId(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg"
+                >
+                  {seasons.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      Saison {s.season_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <span className="block font-semibold mb-2">Typ in dieser Saison</span>
             <div className="grid grid-cols-3 gap-2">
               {PLAYER_TYPES.map((type) => (
                 <button
@@ -223,7 +267,7 @@ export default function EditPlayerPage() {
             </div>
             {playerType === null && (
               <p className="text-sm text-gray-600 mt-2">
-                Noch kein Typ in dieser Saison. Auswählen, um ihn zu setzen.
+                Noch kein Typ in dieser Saison. Auswählen, um den Spieler in diese Saison aufzunehmen.
               </p>
             )}
           </div>

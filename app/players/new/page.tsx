@@ -52,6 +52,14 @@ function isSimilar(x: string, y: string): boolean {
 }
 
 type ExistingPlayer = { name: string; nickname: string | null };
+type Season = {
+  id: string;
+  season_name: string;
+  start_date: string;
+  end_date: string;
+};
+
+const SEASON_KEY = "sk_season";
 
 export default function NewPlayerPage() {
   const router = useRouter();
@@ -64,8 +72,37 @@ export default function NewPlayerPage() {
   const [similar, setSimilar] = useState<ExistingPlayer[] | null>(null);
   // Darf dieses Konto hier eintragen? (null = wird noch geprüft)
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [seasonId, setSeasonId] = useState<string>("");
   useEffect(() => {
     supabase.rpc("can_write_today").then(({ data }) => setAllowed(data === true));
+    async function loadSeasons() {
+      const { data: role } = await supabase.rpc("my_role");
+      setIsAdmin(role === "admin");
+      const { data } = await supabase
+        .from("seasons")
+        .select("id, season_name, start_date, end_date")
+        .order("start_date", { ascending: false });
+      const list = (data ?? []) as Season[];
+      setSeasons(list);
+      let saved: string | null = null;
+      try {
+        saved = localStorage.getItem(SEASON_KEY);
+      } catch {
+        saved = null;
+      }
+      const todayStr = new Date().toLocaleDateString("sv-SE", {
+        timeZone: "Europe/Vienna",
+      });
+      const current =
+        list.find((s) => s.start_date <= todayStr && todayStr <= s.end_date) ??
+        list[0];
+      // Gemerkte Saison nur für Admins; alle anderen: aktuelle Saison
+      const useSaved = role === "admin" && list.some((s) => s.id === saved);
+      setSeasonId(useSaved ? (saved as string) : current?.id ?? "");
+    }
+    loadSeasons();
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -127,15 +164,9 @@ export default function NewPlayerPage() {
 
     setSaving(true);
 
-    // 1. Aktuelle Saison suchen (die mit dem neuesten Startdatum)
-    const { data: season, error: seasonError } = await supabase
-      .from("seasons")
-      .select("id")
-      .order("start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (seasonError || !season) {
+    // 1. Gewählte (oder aktuelle) Saison
+    const season = seasons.find((s) => s.id === seasonId);
+    if (!season) {
       setSaving(false);
       setErrorMessage(
         "Keine Saison gefunden. Bitte zuerst eine Saison anlegen."
@@ -254,6 +285,26 @@ export default function NewPlayerPage() {
               autoComplete="off"
             />
           </div>
+
+          {isAdmin && seasons.length > 1 && (
+            <div>
+              <label htmlFor="season" className="block font-semibold mb-2">
+                Saison
+              </label>
+              <select
+                id="season"
+                value={seasonId}
+                onChange={(e) => setSeasonId(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg"
+              >
+                {seasons.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    Saison {s.season_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <span className="block font-semibold mb-2">

@@ -56,6 +56,7 @@ export default function NewMatchDayPage() {
       .from("seasons")
       .select("id")
       .lte("start_date", playDate)
+      .gte("end_date", playDate)
       .order("start_date", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -63,7 +64,7 @@ export default function NewMatchDayPage() {
     if (seasonError || !season) {
       setSaving(false);
       setErrorMessage(
-        "Für dieses Datum gibt es keine Saison. Bitte ein anderes Datum wählen."
+        "Für dieses Datum gibt es keine Saison. Bitte ein anderes Datum wählen oder zuerst unter Spieler → „Saisons verwalten“ die Saison anlegen."
       );
       return;
     }
