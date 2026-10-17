@@ -77,6 +77,8 @@ export default function MatchDayPage() {
   const [typeFilter, setTypeFilter] = useState("alle");
   // Reiter: null = automatisch (ohne Anwesende: Anwesenheit, sonst Teams)
   const [tab, setTab] = useState<"presence" | "teams" | null>(null);
+  const [showDrawConfirm, setShowDrawConfirm] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const router = useRouter();
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [ending, setEnding] = useState(false);
@@ -298,6 +300,59 @@ export default function MatchDayPage() {
       await load();
     }
     setBusyPlayerId(null);
+  }
+
+  // Mischt eine Liste zufällig (Fisher-Yates)
+  function shuffle<T>(list: T[]): T[] {
+    const a = [...list];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Alle Anwesenden zufällig auf die Teams verteilen (Teams fast gleich groß)
+  async function drawTeams() {
+    if (locked) return;
+    setErrorMessage(null);
+    setDrawing(true);
+    try {
+      const present = players.filter((p) => presentIds.has(p.id));
+      if (present.length === 0 || teams.length === 0) {
+        setShowDrawConfirm(false);
+        setDrawing(false);
+        return;
+      }
+      const teamIds = teams.map((t) => t.id);
+      const presentPlayerIds = present.map((p) => p.id);
+
+      // 1. Bisherige Zuordnung dieser Spieler entfernen
+      const { error: delError } = await supabase
+        .from("team_players")
+        .delete()
+        .in("player_id", presentPlayerIds)
+        .in("team_id", teamIds);
+      if (delError) throw delError;
+
+      // 2. Zufällig verteilen: Spieler und Reihenfolge der Teams mischen
+      const shuffledPlayers = shuffle(presentPlayerIds);
+      const shuffledTeams = shuffle(teamIds);
+      const rows = shuffledPlayers.map((playerId, i) => ({
+        team_id: shuffledTeams[i % shuffledTeams.length],
+        player_id: playerId,
+      }));
+      const { error: insError } = await supabase
+        .from("team_players")
+        .insert(rows);
+      if (insError) throw insError;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "unbekannter Fehler";
+      setErrorMessage(`Fehler bei der Auslosung: ${message}`);
+    }
+    setShowDrawConfirm(false);
+    await load();
+    setDrawing(false);
   }
 
   async function togglePresence(playerId: string) {
@@ -891,6 +946,52 @@ export default function MatchDayPage() {
               >
                 ➕ Neuen Spieler anlegen
               </Link>
+            )}
+
+            {activeTab === "teams" && presentCount > 0 && !locked && !started && (
+              <div className="mb-4">
+                {!showDrawConfirm ? (
+                  <button
+                    type="button"
+                    disabled={drawing}
+                    onClick={() =>
+                      totalAssigned > 0 ? setShowDrawConfirm(true) : drawTeams()
+                    }
+                    className="rounded-xl bg-green-700 px-6 py-3 text-lg font-semibold text-white disabled:opacity-50"
+                  >
+                    {drawing ? "Lost aus…" : "🎲 Teams auslosen"}
+                  </button>
+                ) : (
+                  <div className="rounded-xl border-2 border-amber-500 bg-white p-4">
+                    <p className="font-semibold mb-1">
+                      Teams neu auslosen?
+                    </p>
+                    <p className="text-gray-700 mb-3">
+                      Die bisherige Zuordnung aller Anwesenden wird durch eine
+                      neue Zufallsverteilung ersetzt. Danach kannst du von Hand
+                      weiter ändern.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        disabled={drawing}
+                        onClick={drawTeams}
+                        className="rounded-xl bg-green-700 px-5 py-3 font-semibold text-white disabled:opacity-50"
+                      >
+                        {drawing ? "Lost aus…" : "Ja, neu auslosen"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={drawing}
+                        onClick={() => setShowDrawConfirm(false)}
+                        className="rounded-xl border border-gray-400 bg-white px-5 py-3 font-semibold text-gray-700"
+                      >
+                        Abbrechen
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {activeTab === "teams" && presentCount === 0 && (
