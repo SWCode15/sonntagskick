@@ -1,6 +1,6 @@
 # ⚽ Sonntagskick – Projektdokumentation
 
-**Stand:** 16.10.2026 · **Version des Dokuments:** 9
+**Stand:** 17.10.2026 · **Version des Dokuments:** 10
 **Zweck:** Single Source of Truth. Dieses Dokument in jeden neuen Chat (Claude, Copilot, ChatGPT) hochladen, dann muss nichts neu erklärt werden. Nach jedem abgeschlossenen Schritt wird es aktualisiert (siehe Änderungsprotokoll am Ende).
 **Hinweis zum Dateinamen:** Die Datei heißt im Repo weiterhin `sonntagskick-projektdokumentation111026_V2.md` (nicht umbenennen, damit die Verbindung zum Claude-Projekt stabil bleibt). Die echte Version steht oben im Dokument.
 
@@ -70,7 +70,10 @@ Kostenlose, mobile Webplattform für die Sonntags-Fußballrunde. Ergebnisse werd
 - ✅ Kommentarfeld am Spieltag. ⏳ Kommentar am einzelnen Spiel: Spalte vorhanden, noch ohne Oberfläche.
 - ✅ Spieltags-Auswertung: Punkte, Tore, Tordifferenz, Krone, Strichl, Warnung bei ungleicher Spielzahl
 - ✅ Manuelle Entscheidung bei Gleichstand (Tabelle `match_day_awards`): nach „Spieltag beenden“ auf der Auswertungsseite, alle dürfen eintragen, Admins ändern; auffälliger Hinweis
-- ⏳ Admin: Spieltag bearbeiten/löschen, Team ergänzen, beendete Spiele korrigieren
+- ✅ Admin: Spieltag bearbeiten (Datum, Kommentar, Teamanzahl vor dem Start), löschen (nur ungestartet und ohne Spiele), als „nicht stattgefunden“ oder „nicht gewertet“ markieren (Begründung Pflicht, wird immer angezeigt) – Seite `/matchdays/[id]/edit`
+- ✅ Saisons: Anzeige und Auswahl (Spieltage, Spieler), Admin-Seite `/seasons` (anlegen, Spieler aus einer Saison übernehmen)
+- ✅ Änderungsprotokoll (Admin-Seite `/log`, Filter nach Aktion, Bereich, Konto, Zeitraum)
+- ⏳ Beendete Spiele korrigieren (Oberfläche), Spieltage einer Saison vorab anlegen (Sonntage)
 - ⏳ Auswertungen Saison/All-Time:
   - Kronen- und Strichl-Rangliste (Spieltag, Saison, All-Time)
   - Anwesenheitsquote
@@ -152,6 +155,9 @@ Umgebung: Windows, VS Code, Node.js v24, Projektordner `C:\Users\witsc\sonntagsk
 | `/` | `app/page.tsx` | Dashboard mit Karten (Spieltage, Spieler; Statistiken und Strichl-Tabelle noch Platzhalter) |
 | `/players` | `app/players/page.tsx` | Spielerliste mit Typ der aktuellen Saison; „➕ Spieler hinzufügen“ nur bei Berechtigung |
 | `/players/new` | `app/players/new/page.tsx` | Formular Spieler anlegen (Name, Spitzname, Typ); Admin oder Eintragen am Spieltag; gleicher Name/Spitzname wird abgelehnt, bei ähnlichem Namen gelbe Warnung mit „Trotzdem anlegen“ |
+| `/log` | `app/log/page.tsx` | Änderungsprotokoll (nur Admins), Filter, 50 Einträge pro Seite |
+| `/seasons` | `app/seasons/page.tsx` | Saisons verwalten (nur Admins): anlegen (Prüfung auf Überschneidung), Spieler samt Typ aus einer Saison übernehmen |
+| `/matchdays/[id]/edit` | `app/matchdays/[id]/edit/page.tsx` | Spieltag verwalten (nur Admins): bearbeiten, nicht stattgefunden/nicht gewertet mit Begründung, löschen |
 | `/players/merge` | `app/players/merge/page.tsx` | Spieler zusammenführen (nur Admins): richtigen und falschen Spieler wählen, Vorschau, Bestätigung „Bist du sicher?“ |
 | `/players/[id]/edit` | `app/players/[id]/edit/page.tsx` | Spieler ändern (Name, Spitzname, Typ in der aktuellen Saison, Aktiv/Inaktiv); nur Admins |
 | `/matchdays` | `app/matchdays/page.tsx` | Liste der Spieltage: „Nächster Spieltag“ groß, „Kommende“, „Vergangene“; „➕ Neuer Spieltag“ nur für Admins |
@@ -228,7 +234,7 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | `players` | name (Pflicht), nickname (optional, UNIQUE), active (Pflicht) |
 | `seasons` | season_name (Pflicht, UNIQUE), start_date, end_date, active |
 | `season_players` | season_id, player_id, player_type (`stamm` / `springer` / `gast`), eindeutig pro Saison und Spieler |
-| `match_days` | season_id, play_date, match_format (optional: `3_teams`, `2_teams`, `4_teams`, `open`), notes (optional), **started_at** (leer = nicht gestartet; gesetzt durch `start_match_day`), **finished_at** (leer = nicht beendet; gesetzt durch `end_match_day`), **entry_locked** (Standard false; Admin sperrt damit das Eintragen für diesen Spieltag) |
+| `match_days` | season_id, play_date, match_format (optional: `3_teams`, `2_teams`, `4_teams`, `open`), notes (optional), **started_at** (leer = nicht gestartet; gesetzt durch `start_match_day`), **finished_at** (leer = nicht beendet; gesetzt durch `end_match_day`), **entry_locked** (Standard false; Admin sperrt damit das Eintragen für diesen Spieltag), **excluded_type** (`not_played` = nicht stattgefunden, `not_rated` = nicht gewertet, sonst leer), **excluded_reason** (Begründung, Pflicht wenn gesetzt), **excluded_at** |
 | `match_day_players` | match_day_id, player_id (Spieler war anwesend) |
 | `teams` | match_day_id, team_number |
 | `team_players` | team_id, player_id |
@@ -247,6 +253,8 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 - `sonntagskick-spieltage-vorab.sql` (ausgeführt 14.10.2026, **mehrfach ausführbar**): legt Spieltage mit je 3 Teams für eine selbst gepflegte Terminliste an; vorhandene Daten werden übersprungen.
 - `sonntagskick-schema-v4-auth.sql` (ausgeführt 14.10.2026): Tabelle `admins`, Funktion `is_admin()`, alle offenen „Public“-Regeln ersetzt durch Regeln für `authenticated` plus „Admin all …“, Funktionen nur noch für Angemeldete. **Nicht erneut ausführen.**
 - `sonntagskick-schema-v5-start.sql` (ausgeführt 14.10.2026): `match_days.started_at`, Funktion `start_match_day`, Sperre von Anwesenheit/Teamzuordnung nach dem Start. **Nicht erneut ausführen.**
+- `sonntagskick-schema-v12-aenderungsprotokoll.sql` (ausgeführt 17.10.2026, **mehrfach ausführbar**): Tabelle `audit_log` (Zeitpunkt, Konto, Rolle, Bereich, Aktion neu/geändert/gelöscht, Klartext, Inhalt vorher/nachher) und 9 Auslöser (`audit_row`) auf players, seasons, season_players, match_days, teams, match_day_players, team_players, games, match_day_awards. Lesen nur Admins, niemand schreibt direkt. Nicht protokolliert: Tore bei laufenden Spielen; beim Löschen eines Spieltags nur eine Zeile. Das Protokoll nennt das Konto, nicht die Person (gemeinsame Konten Leser/Eintragen).
+- `sonntagskick-schema-v11-spieltag-verwalten.sql` (ausgeführt 17.10.2026, **mehrfach ausführbar**): Spalten `excluded_type`, `excluded_reason`, `excluded_at` in `match_days` (mit Prüfregel: alles leer oder Art, nichtleere Begründung und Zeitpunkt), `can_edit_match_day` sperrt das Konto „Eintragen“ bei ausgeschlossenen Spieltagen, Funktion `delete_match_day(id)` (nur Admin, nur wenn nicht gestartet und keine Spiele).
 - `sonntagskick-schema-v10-spieler-zusammenfuehren.sql` (ausgeführt 17.10.2026, **mehrfach ausführbar**): Funktionen `merge_players_preview(p_keep, p_remove)` (nur Vorschau als JSON) und `merge_players(p_keep, p_remove)` (hängt Saison-Typen, Anwesenheit und Teamzuordnung um und löscht den Doppelten), beide `security definer`, nur Admins. Regeln: Saison-Typ gilt von p_keep, hat nur p_remove einen, wird er übernommen; waren beide an einem Spieltag da, bleibt p_keep; Teamzuordnung von p_remove entfällt, wenn p_keep an dem Spieltag schon eingetragen ist.
 - `sonntagskick-schema-v9-spieler-eindeutig.sql` (ausgeführt 16.10.2026, **mehrfach ausführbar**): eindeutiger Name und Spitzname in `players` (Groß/Klein und Leerzeichen am Rand egal), Indizes `players_name_unique_ci`, `players_nickname_unique_ci`.
 - `sonntagskick-schema-v8a-rollen.sql` (ausgeführt 16.10.2026, **mehrfach ausführbar**, fügt nur Neues hinzu): Tabelle `writers`, Funktionen `is_writer`, `my_role`, `can_edit_match_day`, `can_write_today`, Spalte `match_days.entry_locked`.
@@ -258,7 +266,8 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 - „Jeder Spieler hat pro Spieltag genau ein Team“ lässt sich mit den vorhandenen Tabellen nicht rein per Unique-Regel erzwingen (`team_players` kennt den Spieltag nicht). Die App löst es, indem sie beim Zuordnen zuerst das alte Team entfernt. Absicherung per Trigger später.
 - „Beide Teams eines Spiels gehören zum selben Spieltag wie das Spiel“ ist ebenfalls nicht abgesichert (später Trigger).
 - Soll es pro Datum nur einen Spieltag geben (`unique (play_date)`)? Noch offen.
-- Die „aktuelle Saison“ ist in den Seiten Spieler und Spieler anlegen die mit dem neuesten Startdatum. Spieler, die in einer neuen Saison weiterspielen, müssen dort erst in `season_players` eingetragen werden (Seite dafür fehlt noch).
+- **Saison-Auswahl:** In Spieltage, Spieler, Spieler anlegen und Spieler ändern gibt es eine Saisonauswahl. Vorauswahl: gemerkte Wahl (Browser, Schlüssel `sk_season`), sonst die Saison, die heute enthält, sonst die neueste. Die Spielerliste zeigt nur Spieler mit einem Typ in der gewählten Saison. Neue Spieltage landen in der Saison, deren Zeitraum das Datum enthält (sonst Hinweis, zuerst die Saison anzulegen). Rückwirkende Saisons und Einträge dürfen nur Admins.
+- **Ausgeschlossene Spieltage** (`excluded_type` gesetzt) müssen die Statistik-Seiten später **von der Wertung ausnehmen**; Hinweis mit Begründung steht auf Spieltag-Seite und -Liste.
 
 ### 6.4 Spätere Erweiterung
 - `goals` (Torschützen pro Tor)
@@ -309,10 +318,10 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 0b. ~~Admin: Spieler ändern~~: **erledigt 16.10.2026** (Seite `/players/[id]/edit`).
 0c. ~~Doppelte Spieler vermeiden~~: **erledigt 16.10.2026** (Sperre v9 und Warnung bei ähnlichen Namen). Spieler zusammenführen: **erledigt 17.10.2026** (Skript v10, Seite `/players/merge`, getestet).
 0c. **Neues Feature, geringe Priorität: Auslosung der Teams per Knopfdruck** (zufällig, mit Tauschen; siehe 3.2). Beachten: gleich große Teams (normal 4), Nicht-Anwesende ausnehmen, Ergebnis bestätigen, dann erst zuordnen.
-1. **Erinnerung (auf Wunsch des Nutzers): Team 4 / „Spieltag bearbeiten“.** Admin: Datum, Modus, Kommentar ändern, Team ergänzen, Spieltag löschen. Modus-Wechsel auf 2 oder 4 Teams; bei 2 Teams Runden erweiterbar (Admin). Niedrige Priorität, 95 % der Spieltage sind 3 Teams und 4 Runden. Bis dahin Notlösung: Team in Supabase von Hand eintragen oder Spieltag mit 4 Teams neu anlegen, solange nichts eingetragen ist.
+1. ~~Erinnerung Team 4 / „Spieltag bearbeiten“~~: **erledigt 17.10.2026** (Teamanzahl und Datum änderbar, Seite `/matchdays/[id]/edit`). Offen: Modus-Wechsel bei laufendem Spieltag, Runden bei 2 Teams erweitern (niedrige Priorität).
 
 ### 9.2 Weitere offene Punkte
-1. **Admin-Funktionen in der App:** beendete Spiele korrigieren, Spieltag bearbeiten/löschen. Die Datenbank erlaubt es Admins bereits, die Oberfläche fehlt.
+1. **Admin-Funktionen in der App:** beendete Spiele korrigieren (Oberfläche fehlt; die Datenbank erlaubt es Admins). Spieltag bearbeiten/löschen ist erledigt.
 2. ~~Manuelle Entscheidung bei Gleichstand~~: erledigt am 15.10.2026. Offen: Auswertungen (Statistik) müssen später Entscheidungen aus `match_day_awards` vor der berechneten Wertung berücksichtigen.
 3. **Warnung beim Wiederöffnen** eines Spieltags mit bereits beendeten Spielen („Änderungen an den Teams ändern die Ergebnisse“).
 4. ~~„nicht da“-Knopf~~: erledigt am 15.10.2026 (wie die Team-Knöpfe, ausgewählt orange).
@@ -339,3 +348,4 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 16.10.2026 (abends) | Live-Tabelle mit Umschalter „Nur beendete“ / „Inkl. laufendes“; Admin kann Spieler ändern (Seite `/players/[id]/edit`, Knopf „✏ Ändern“ in der Spielerliste). Inaktive Spieler erscheinen nicht in der Anwesenheit eines Spieltags |
 | 17.10.2026 | Spielerliste mit Testspielern geleert und neu aufgebaut; Skript v9 (eindeutige Namen), Warnung bei ähnlichen Namen beim Anlegen |
 | 17.10.2026 (vormittags) | Admin: Spieler zusammenführen (Skript v10, Seite `/players/merge`, Knopf in der Spielerliste) |
+| 17.10.2026 (mittags) | Saisons anzeigen und wählen, Seite `/seasons`; Spieltag verwalten (bearbeiten, nicht stattgefunden/nicht gewertet mit Begründung, löschen; Skript v11); Änderungsprotokoll (Skript v12, Seite `/log`); Version 10 |
