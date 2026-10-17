@@ -75,6 +75,8 @@ export default function MatchDayPage() {
     new Map()
   );
   const [typeFilter, setTypeFilter] = useState("alle");
+  // Reiter: null = automatisch (ohne Anwesende: Anwesenheit, sonst Teams)
+  const [tab, setTab] = useState<"presence" | "teams" | null>(null);
   const router = useRouter();
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [ending, setEnding] = useState(false);
@@ -287,6 +289,28 @@ export default function MatchDayPage() {
     setBusyPlayerId(null);
   }
 
+  async function togglePresence(playerId: string) {
+    if (locked) return;
+    setErrorMessage(null);
+    setBusyPlayerId(playerId);
+    try {
+      if (presentIds.has(playerId)) {
+        await removePlayer(playerId);
+      } else {
+        const { error } = await supabase
+          .from("match_day_players")
+          .insert({ match_day_id: matchDayId, player_id: playerId });
+        if (error && error.code !== "23505") throw error;
+      }
+      await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "unbekannter Fehler";
+      setErrorMessage(`Fehler beim Speichern: ${message}`);
+      await load();
+    }
+    setBusyPlayerId(null);
+  }
+
   async function markAbsent(playerId: string) {
     if (locked) return;
     setErrorMessage(null);
@@ -398,7 +422,7 @@ export default function MatchDayPage() {
     );
 
   const absentNames = players
-    .filter((p) => !presentIds.has(p.id))
+    .filter((p) => !presentIds.has(p.id) && typeByPlayer.has(p.id))
     .map((p) => p.nickname ?? p.name);
 
   if (loading) {
@@ -778,97 +802,207 @@ export default function MatchDayPage() {
         </p>
       )}
 
-      {/* Filter nach Spielertyp (Typ der Saison dieses Spieltags) */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {FILTERS.map((f) => {
-          const count =
-            f.value === "alle"
-              ? players.length
-              : players.filter((p) => typeByPlayer.get(p.id) === f.value)
-                  .length;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setTypeFilter(f.value)}
-              className={
-                "rounded-xl border px-4 py-2 font-semibold " +
-                (typeFilter === f.value
-                  ? "bg-green-600 border-green-600 text-white"
-                  : "bg-white border-gray-300 text-gray-800")
-              }
-            >
-              {f.label} ({count})
-            </button>
-          );
-        })}
-      </div>
+      {/* Reiter: Anwesenheit / Teams */}
+      {(() => {
+        const activeTab = tab ?? (presentIds.size === 0 ? "presence" : "teams");
+        const presentCount = players.filter((p) => presentIds.has(p.id)).length;
+        const withoutTeam = players.filter(
+          (p) => presentIds.has(p.id) && !teamOfPlayer.has(p.id)
+        ).length;
+        const shownPlayers = players.filter(
+          (p) =>
+            (typeFilter === "alle" || typeByPlayer.get(p.id) === typeFilter) &&
+            (activeTab === "presence" || presentIds.has(p.id))
+        );
+        const filterBase =
+          activeTab === "presence"
+            ? players
+            : players.filter((p) => presentIds.has(p.id));
 
-      {/* Spielerliste */}
-      <div className="space-y-4">
-        {players
-          .filter(
-            (p) =>
-              typeFilter === "alle" || typeByPlayer.get(p.id) === typeFilter
-          )
-          .map((player) => {
-          const currentTeamId = teamOfPlayer.get(player.id);
-          const present = presentIds.has(player.id);
-          const busy = busyPlayerId === player.id;
+        return (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setTab("presence")}
+                className={
+                  "rounded-xl border px-3 py-3 font-semibold " +
+                  (activeTab === "presence"
+                    ? "bg-green-700 border-green-700 text-white"
+                    : "bg-white border-gray-300 text-gray-800")
+                }
+              >
+                ① Anwesenheit ({presentCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("teams")}
+                className={
+                  "rounded-xl border px-3 py-3 font-semibold " +
+                  (activeTab === "teams"
+                    ? "bg-green-700 border-green-700 text-white"
+                    : "bg-white border-gray-300 text-gray-800")
+                }
+              >
+                ② Teams
+              </button>
+            </div>
 
-          return (
-            <div
-              key={player.id}
-              className="bg-white rounded-xl p-5 shadow"
-            >
-              <p className="text-xl font-bold">
-                {player.nickname ?? player.name}
+            {activeTab === "presence" ? (
+              <p className="text-gray-700 mb-3">
+                Tippe auf alle, die heute da sind. {presentCount} anwesend.
               </p>
-              {player.nickname && (
-                <p className="text-gray-600">{player.name}</p>
-              )}
-              <p className="text-sm text-green-700 font-medium mb-2">
-                {typeByPlayer.has(player.id)
-                  ? TYPE_LABELS[typeByPlayer.get(player.id) as string] ??
-                    typeByPlayer.get(player.id)
-                  : "Kein Typ in dieser Saison"}
+            ) : (
+              <p className="text-gray-700 mb-3">
+                {presentCount} anwesend
+                {withoutTeam > 0
+                  ? `, davon ${withoutTeam} noch ohne Team.`
+                  : "."}
               </p>
+            )}
 
-              <div className="flex flex-wrap gap-2 mt-2">
-                {teams.map((team) => (
+            {/* Filter nach Spielertyp (Typ der Saison dieses Spieltags) */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {FILTERS.map((f) => {
+                const count =
+                  f.value === "alle"
+                    ? filterBase.length
+                    : filterBase.filter(
+                        (p) => typeByPlayer.get(p.id) === f.value
+                      ).length;
+                return (
                   <button
-                    key={team.id}
+                    key={f.value}
                     type="button"
-                    disabled={busy || locked}
-                    onClick={() => chooseTeam(player.id, team.id)}
+                    onClick={() => setTypeFilter(f.value)}
                     className={
-                      "h-14 min-w-14 px-4 rounded-xl border text-xl font-bold disabled:opacity-50 " +
-                      (currentTeamId === team.id
+                      "rounded-xl border px-4 py-2 font-semibold " +
+                      (typeFilter === f.value
                         ? "bg-green-600 border-green-600 text-white"
                         : "bg-white border-gray-300 text-gray-800")
                     }
                   >
-                    {team.team_number}
+                    {f.label} ({count})
                   </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={busy || locked}
-                  onClick={() => markAbsent(player.id)}
-                  className={
-                    "h-14 px-4 rounded-xl border text-xl font-bold disabled:opacity-50 " +
-                    (!present
-                      ? "bg-orange-500 border-orange-500 text-white"
-                      : "bg-white border-gray-300 text-gray-800")
-                  }
-                >
-                  {!present ? "✕ nicht da" : "nicht da"}
-                </button>
-              </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+
+            {activeTab === "presence" && canEdit && !started && (
+              <Link
+                href="/players/new"
+                className="inline-block rounded-xl border border-green-700 bg-white px-4 py-2 font-semibold text-green-800 mb-4"
+              >
+                ➕ Neuen Spieler anlegen
+              </Link>
+            )}
+
+            {activeTab === "teams" && presentCount === 0 && (
+              <p className="rounded-xl bg-white p-4 text-gray-700">
+                Noch niemand als anwesend eingetragen. Bitte zuerst bei ①
+                Anwesenheit die Spieler antippen.
+              </p>
+            )}
+
+            <div className="space-y-4">
+              {shownPlayers.map((player) => {
+                const currentTeamId = teamOfPlayer.get(player.id);
+                const present = presentIds.has(player.id);
+                const busy = busyPlayerId === player.id;
+                const typeText = typeByPlayer.has(player.id)
+                  ? TYPE_LABELS[typeByPlayer.get(player.id) as string] ??
+                    typeByPlayer.get(player.id)
+                  : "Kein Typ in dieser Saison";
+
+                if (activeTab === "presence") {
+                  return (
+                    <button
+                      key={player.id}
+                      type="button"
+                      disabled={busy || locked}
+                      onClick={() => togglePresence(player.id)}
+                      className={
+                        "w-full text-left rounded-xl p-5 shadow border-2 disabled:opacity-60 " +
+                        (present
+                          ? "bg-green-50 border-green-600"
+                          : "bg-white border-transparent")
+                      }
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span>
+                          <span className="block text-xl font-bold">
+                            {player.nickname ?? player.name}
+                          </span>
+                          {player.nickname && (
+                            <span className="block text-gray-600">
+                              {player.name}
+                            </span>
+                          )}
+                          <span className="block text-sm text-green-700 font-medium">
+                            {typeText}
+                          </span>
+                        </span>
+                        <span
+                          className={
+                            "text-lg font-bold " +
+                            (present ? "text-green-700" : "text-gray-400")
+                          }
+                        >
+                          {present ? "✓ da" : "nicht da"}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                }
+
+                return (
+                  <div
+                    key={player.id}
+                    className="bg-white rounded-xl p-5 shadow"
+                  >
+                    <p className="text-xl font-bold">
+                      {player.nickname ?? player.name}
+                    </p>
+                    {player.nickname && (
+                      <p className="text-gray-600">{player.name}</p>
+                    )}
+                    <p className="text-sm text-green-700 font-medium mb-2">
+                      {typeText}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {teams.map((team) => (
+                        <button
+                          key={team.id}
+                          type="button"
+                          disabled={busy || locked}
+                          onClick={() => chooseTeam(player.id, team.id)}
+                          className={
+                            "h-14 min-w-14 px-4 rounded-xl border text-xl font-bold disabled:opacity-50 " +
+                            (currentTeamId === team.id
+                              ? "bg-green-600 border-green-600 text-white"
+                              : "bg-white border-gray-300 text-gray-800")
+                          }
+                        >
+                          {team.team_number}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={busy || locked}
+                        onClick={() => markAbsent(player.id)}
+                        className="h-14 px-4 rounded-xl border border-gray-300 bg-white text-xl font-bold text-gray-800 disabled:opacity-50"
+                      >
+                        nicht da
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        );
+      })()}
     </main>
   );
 }
