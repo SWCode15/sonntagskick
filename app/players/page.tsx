@@ -49,6 +49,7 @@ export default function PlayersPage() {
   const [typeByPlayer, setTypeByPlayer] = useState<Map<string, string>>(
     new Map()
   );
+  const [typesLoaded, setTypesLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [canAdd, setCanAdd] = useState(false);
@@ -101,6 +102,7 @@ export default function PlayersPage() {
   // Typen der gewählten Saison laden
   useEffect(() => {
     async function loadTypes() {
+      setTypesLoaded(false);
       const types = new Map<string, string>();
       if (seasonId) {
         const { data: seasonPlayers } = await supabase
@@ -112,9 +114,17 @@ export default function PlayersPage() {
         });
       }
       setTypeByPlayer(types);
+      setTypesLoaded(true);
     }
     loadTypes();
   }, [seasonId]);
+
+  // Nur Spieler, die in der gewählten Saison einen Typ haben
+  const visiblePlayers = !seasonId
+    ? players
+    : typesLoaded
+    ? players.filter((p) => typeByPlayer.has(p.id))
+    : [];
 
   return (
     <main className="min-h-screen bg-green-100 p-6">
@@ -168,8 +178,12 @@ export default function PlayersPage() {
 
       {loading && <p className="text-gray-600">Lädt…</p>}
 
+      {!loading && typesLoaded && seasonId && visiblePlayers.length === 0 && (
+        <p className="text-gray-600">In dieser Saison gibt es noch keine Spieler.</p>
+      )}
+
       <div className="space-y-4">
-        {players.map((player) => {
+        {visiblePlayers.map((player) => {
           const type = typeByPlayer.get(player.id);
           return (
             <div key={player.id} className="bg-white rounded-xl p-6 shadow">
