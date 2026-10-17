@@ -50,6 +50,15 @@ export default function Home() {
             </div>
           </Link>
         )}
+
+        {isAdmin && (
+          <Link href="/log">
+            <div className="bg-white rounded-xl p-6 shadow hover:shadow-lg transition cursor-pointer">
+              <h2 className="text-2xl font-bold">📜 Änderungsprotokoll</h2>
+              <p>Wer hat wann was geändert</p>
+            </div>
+          </Link>
+        )}
       </div>
     </main>
   );
