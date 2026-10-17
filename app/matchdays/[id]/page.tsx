@@ -560,6 +560,14 @@ export default function MatchDayPage() {
               🔓 Spieltag wieder öffnen (Start zurücknehmen)
             </button>
           )}
+          {isAdmin && (
+            <Link
+              href={`/matchdays/${matchDayId}/edit`}
+              className="inline-block rounded-xl border border-green-700 bg-white px-4 py-2 font-semibold text-green-800"
+            >
+              ⚙ Spieltag verwalten
+            </Link>
+          )}
         </div>
       ) : (
         <div className="mb-4">
@@ -641,6 +649,16 @@ export default function MatchDayPage() {
               </div>
             </div>
           )}
+          {isAdmin && (
+            <div className="mt-3">
+              <Link
+                href={`/matchdays/${matchDayId}/edit`}
+                className="inline-block rounded-xl border border-green-700 bg-white px-4 py-2 font-semibold text-green-800"
+              >
+                ⚙ Spieltag verwalten
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -664,6 +682,27 @@ export default function MatchDayPage() {
           📊 Auswertung
         </Link>
       </div>
+
+      {/* Admin: Eintragen für diesen Spieltag sperren oder freigeben */}
+      {isAdmin && (
+        <div className="rounded-xl bg-white p-4 mt-4 shadow">
+          <p className="text-sm text-gray-600 mb-2">
+            Admin: Das Konto „Eintragen“ darf am Spieltag selbst eintragen.{" "}
+            {matchDay.entry_locked
+              ? "Derzeit ist es für diesen Spieltag gesperrt."
+              : "Derzeit ist es nicht gesperrt."}
+          </p>
+          <button
+            type="button"
+            onClick={toggleEntryLock}
+            className="rounded-xl border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700"
+          >
+            {matchDay.entry_locked
+              ? "🔓 Eintragen freigeben"
+              : "🔒 Eintragen sperren"}
+          </button>
+        </div>
+      )}
 
       {/* Übersicht der Teams */}
       <section className="bg-white rounded-xl p-5 shadow mb-6 mt-4">
@@ -709,33 +748,6 @@ export default function MatchDayPage() {
             ? "🔒 Eintragen ist für diesen Spieltag gesperrt."
             : "📅 Eintragen ist nur am Tag des Spieltags möglich."}
         </p>
-      )}
-
-      {/* Admin: Eintragen für diesen Spieltag sperren oder freigeben */}
-      {isAdmin && (
-        <div className="rounded-xl bg-white p-4 mb-4 shadow">
-          <Link
-            href={`/matchdays/${matchDayId}/edit`}
-            className="inline-block rounded-xl border border-green-700 bg-white px-4 py-2 font-semibold text-green-800 mb-3"
-          >
-            ⚙ Spieltag verwalten (bearbeiten, nicht gewertet, löschen)
-          </Link>
-          <p className="text-sm text-gray-600 mb-2">
-            Admin: Das Konto „Eintragen“ darf am Spieltag selbst eintragen.{" "}
-            {matchDay.entry_locked
-              ? "Derzeit ist es für diesen Spieltag gesperrt."
-              : "Derzeit ist es nicht gesperrt."}
-          </p>
-          <button
-            type="button"
-            onClick={toggleEntryLock}
-            className="rounded-xl border border-gray-400 bg-white px-4 py-2 font-semibold text-gray-700"
-          >
-            {matchDay.entry_locked
-              ? "🔓 Eintragen freigeben"
-              : "🔒 Eintragen sperren"}
-          </button>
-        </div>
       )}
 
       {/* Spielerliste */}
