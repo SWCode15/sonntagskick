@@ -209,9 +209,13 @@ export default function LiveGamePage() {
         ← Alle Spiele
       </Link>
 
-      <p className="text-gray-600 mt-2">
-        Runde {game.round_number} · Spiel {game.game_number ?? "–"}
-        {game.finished ? " · beendet" : ""}
+      <p className="text-xl font-bold text-green-900 mt-2">
+        Runde {game.round_number} (Spiel {game.game_number ?? "–"})
+        {game.finished ? (
+          <span className="ml-2 text-base font-semibold text-gray-600">
+            · beendet
+          </span>
+        ) : null}
       </p>
       <h1 className="text-3xl font-bold mb-5">
         {teamAName} : {teamBName}
