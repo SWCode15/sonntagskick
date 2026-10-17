@@ -257,9 +257,14 @@ export default function MatchDayPage() {
     try {
       const currentTeamId = teamOfPlayer.get(playerId);
 
-      // Zweiter Tipp auf dasselbe Team = Spieler wieder entfernen
+      // Zweiter Tipp auf dasselbe Team = nur aus dem Team nehmen (bleibt anwesend)
       if (currentTeamId === teamId) {
-        await removePlayer(playerId);
+        const { error } = await supabase
+          .from("team_players")
+          .delete()
+          .eq("player_id", playerId)
+          .eq("team_id", teamId);
+        if (error) throw error;
       } else {
         if (!presentIds.has(playerId)) {
           const { error } = await supabase
@@ -302,21 +307,6 @@ export default function MatchDayPage() {
           .insert({ match_day_id: matchDayId, player_id: playerId });
         if (error && error.code !== "23505") throw error;
       }
-      await load();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "unbekannter Fehler";
-      setErrorMessage(`Fehler beim Speichern: ${message}`);
-      await load();
-    }
-    setBusyPlayerId(null);
-  }
-
-  async function markAbsent(playerId: string) {
-    if (locked) return;
-    setErrorMessage(null);
-    setBusyPlayerId(playerId);
-    try {
-      await removePlayer(playerId);
       await load();
     } catch (err) {
       const message = err instanceof Error ? err.message : "unbekannter Fehler";
@@ -987,14 +977,6 @@ export default function MatchDayPage() {
                           {team.team_number}
                         </button>
                       ))}
-                      <button
-                        type="button"
-                        disabled={busy || locked}
-                        onClick={() => markAbsent(player.id)}
-                        className="h-14 px-4 rounded-xl border border-gray-300 bg-white text-xl font-bold text-gray-800 disabled:opacity-50"
-                      >
-                        nicht da
-                      </button>
                     </div>
                   </div>
                 );
