@@ -1,6 +1,6 @@
 # ⚽ Sonntagskick – Projektdokumentation
 
-**Stand:** 17.10.2026 · **Version des Dokuments:** 11
+**Stand:** 17.10.2026 (abends) · **Version des Dokuments:** 12
 **Zweck:** Single Source of Truth. Dieses Dokument in jeden neuen Chat (Claude, Copilot, ChatGPT) hochladen, dann muss nichts neu erklärt werden. Nach jedem abgeschlossenen Schritt wird es aktualisiert (siehe Änderungsprotokoll am Ende).
 **Hinweis zum Dateinamen:** Die Datei heißt im Repo weiterhin `sonntagskick-projektdokumentation111026_V2.md` (nicht umbenennen, damit die Verbindung zum Claude-Projekt stabil bleibt). Die echte Version steht oben im Dokument.
 
@@ -245,7 +245,9 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 
 **Schutzregeln in der Datenbank:** Fremdschlüssel überall (Löschen eines Spieltags löscht Teams, Zuordnungen und Spiele mit; Spieler und Saisons mit Daten lassen sich nicht löschen), Tore ≥ 0, Team A ≠ Team B, Runde ≥ 1, Saison-Ende ≥ Saison-Start, Spieler nur einmal pro Spieltag, Teamnummer nur einmal pro Spieltag, Spieler nur einmal pro Team, Spielnummer nur einmal pro Spieltag. Zur `match_format`-Spalte: sie hält nur die Auswahl beim Anlegen fest, die echten Daten stehen in `teams` und `games`.
 
-**Daten-Stand 15.10.2026:** 2 Spieler (Witschy, Harry, beide Stammspieler), 1 Saison `2026/2027` (03.10.2026 bis 28.02.2027), Spieltage der Saison vorab angelegt (je 3 Teams, per Skript, einige Termine bewusst ausgelassen). Testdaten wurden am 15.10.2026 abends zurückgesetzt (danach am Testspieltag erneut getestet, vor dem echten Einsatz noch einmal zurücksetzen) (Spiele, Anwesenheit, Zuordnungen gelöscht, `started_at`/`finished_at` geleert). Es gibt 18 Spieltage mit je 3 Teams.
+**ACHTUNG, echte Daten seit 17.10.2026:** Der Spieltag vom **04.10.2026** enthält nachgetragene Echtdaten (Runde 1). Diesen Spieltag und seine Spiele, Teams, Anwesenheit und Zuordnungen **nicht löschen oder zurücksetzen**. Testdaten nur gezielt und nach Prüfung der betroffenen Spieltage entfernen. Vor Aufräum-Aktionen ein CSV-Backup machen.
+
+**Daten-Stand 15.10.2026 (vor den Echtdaten):** 2 Spieler (Witschy, Harry, beide Stammspieler), 1 Saison `2026/2027` (03.10.2026 bis 28.02.2027), Spieltage der Saison vorab angelegt (je 3 Teams, per Skript, einige Termine bewusst ausgelassen). Testdaten wurden am 15.10.2026 abends zurückgesetzt (danach am Testspieltag erneut getestet, vor dem echten Einsatz noch einmal zurücksetzen) (Spiele, Anwesenheit, Zuordnungen gelöscht, `started_at`/`finished_at` geleert). Es gibt 18 Spieltage mit je 3 Teams.
 
 ### 6.2 Historie der Skripte
 - `sonntagskick-schema-v2.sql` (ausgeführt 11.10.2026): Fremdschlüssel, Unique- und Check-Regeln, `season_players`, `match_day_awards`, `games.finished`/`notes`, `start_Date` → `start_date`.
@@ -350,3 +352,4 @@ Alle Tabellen haben `id` (uuid, Primary Key) und `created_at`.
 | 17.10.2026 (vormittags) | Admin: Spieler zusammenführen (Skript v10, Seite `/players/merge`, Knopf in der Spielerliste) |
 | 17.10.2026 (mittags) | Saisons anzeigen und wählen, Seite `/seasons`; Spieltag verwalten (bearbeiten, nicht stattgefunden/nicht gewertet mit Begründung, löschen; Skript v11); Änderungsprotokoll (Skript v12, Seite `/log`); Version 10 |
 | 17.10.2026 (nachmittags) | Spieltag in zwei Schritten (① Anwesenheit, ② Teams), Typ-Filter Stamm/Springer/Gast mit Anzahl (Spieltag und Spielerliste), Spieler alphabetisch, „nicht da“-Knopf bei Teams entfernt, zufällige Auslosung der Teams; keine Datenbankänderung; Version 11 |
+| 17.10.2026 (abends) | Zählseite zeigt „Runde X (Spiel Y)“ groß; Echtdaten vom 04.10.2026 nachgetragen (Hinweis: nicht löschen); Version 12 |
